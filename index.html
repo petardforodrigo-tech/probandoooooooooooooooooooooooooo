@@ -125,6 +125,10 @@
         <div id="breakdown" class="text-xs text-[#a9a2cf] mt-1"></div>
         <div id="rateInfo" class="text-xs text-[#8d86b5] mt-1"></div>
 
+        <div id="authBar" class="mt-5 text-sm flex items-center justify-between gap-2 rounded-lg px-3 py-2 border border-[#2b2352]">
+          <span id="authState" class="text-[#a9a2cf] truncate"></span>
+          <button id="authBtn" type="button" class="text-[#35e0ff] hover:underline whitespace-nowrap"></button>
+        </div>
         <label data-i18n="tagLbl" class="block text-sm mt-5 mb-1" for="tag">Tag de Discord</label>
         <input id="tag" class="field w-full rounded-lg px-3 py-2" placeholder="usuario#0000" autocomplete="off">
         <label data-i18n="regionLbl" class="block text-sm mt-3 mb-1" for="region">Servidor / Región</label>
@@ -147,6 +151,62 @@
   </footer>
 </main>
 
+<div id="authModal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(5,3,15,.85);align-items:center;justify-content:center;padding:16px">
+  <div class="panel rounded-xl p-6 w-full" style="max-width:380px">
+    <h2 id="authTitle" class="display text-xl font-bold mb-4">Inicia sesión</h2>
+    <label class="block text-sm mb-1" for="authEmail">Email</label>
+    <input id="authEmail" type="email" class="field w-full rounded-lg px-3 py-2" autocomplete="email">
+    <label class="block text-sm mt-3 mb-1" for="authPass">Contraseña (mínimo 6)</label>
+    <input id="authPass" type="password" class="field w-full rounded-lg px-3 py-2" autocomplete="current-password">
+    <p id="authMsg" class="text-sm text-[#ff8aa8] mt-3 hidden"></p>
+    <button id="authGo" type="button" class="display w-full mt-4 py-2 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Entrar</button>
+    <button id="authSwitch" type="button" class="w-full mt-2 text-sm text-[#35e0ff] hover:underline">¿No tienes cuenta? Crear una</button>
+    <button id="authClose" type="button" class="w-full mt-1 text-xs text-[#8d86b5] hover:underline">Cancelar</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// ====== CONFIGURA ESTO (Supabase > Project Settings > API) ======
+const SUPABASE_URL = "https://lypgmhipcqxabqcplvta.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mBWgojSoYsBLCaMpDU9cZQ_W-KYqolr";
+const ORDER_FN_URL = SUPABASE_URL + "/functions/v1/send-order";
+// ================================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let session = null, authMode = "login";
+const $a = id => document.getElementById(id);
+function refreshAuthUI(){
+  $a("authState").textContent = session ? session.user.email : "Necesitas una cuenta para pedir";
+  $a("authBtn").textContent = session ? "Salir" : "Entrar / Crear cuenta";
+}
+function setMode(m){
+  authMode = m;
+  $a("authTitle").textContent = m === "login" ? "Inicia sesión" : "Crea tu cuenta";
+  $a("authGo").textContent = m === "login" ? "Entrar" : "Crear cuenta";
+  $a("authSwitch").textContent = m === "login" ? "¿No tienes cuenta? Crear una" : "¿Ya tienes cuenta? Entrar";
+  $a("authMsg").classList.add("hidden");
+}
+function openAuth(m){ setMode(m || "login"); $a("authModal").style.display = "flex"; }
+function closeAuth(){ $a("authModal").style.display = "none"; }
+function authMsg(t){ $a("authMsg").textContent = t; $a("authMsg").classList.remove("hidden"); }
+sb.auth.getSession().then(({data}) => { session = data.session; refreshAuthUI(); });
+sb.auth.onAuthStateChange((_e, s) => { session = s; refreshAuthUI(); });
+$a("authBtn").onclick = () => session ? sb.auth.signOut() : openAuth("login");
+$a("authClose").onclick = closeAuth;
+$a("authSwitch").onclick = () => setMode(authMode === "login" ? "signup" : "login");
+$a("authGo").onclick = async () => {
+  const email = $a("authEmail").value.trim(), password = $a("authPass").value;
+  if (!email || password.length < 6) return authMsg("Email y contraseña (mínimo 6 caracteres).");
+  $a("authGo").disabled = true;
+  const res = authMode === "login"
+    ? await sb.auth.signInWithPassword({ email, password })
+    : await sb.auth.signUp({ email, password });
+  $a("authGo").disabled = false;
+  if (res.error) return authMsg(res.error.message);
+  if (authMode === "signup" && !res.data.session) return authMsg("Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.");
+  closeAuth();
+};
+</script>
+
 <script>
 const DISCORD_URL = "https://discord.gg/ZprtT8yeF";
 // Opcional: link directo al canal donde se abren los tickets, con formato
@@ -155,7 +215,7 @@ const DISCORD_URL = "https://discord.gg/ZprtT8yeF";
 const TICKET_URL = "";
 // Pega aquí la URL del webhook del canal donde quieres recibir los pedidos.
 // Si lo dejas vacío, funciona como antes (copia el resumen y redirige).
-const WEBHOOK_URL = "https://discord.com/api/webhooks/1569858128458158241/XEifCmvwDWGlS2UsI6riOQgOd9mdByAJfVZb2STlPxfck5ACuB2IPetf0cyDYpwWNFU3";
+const WEBHOOK_URL = "";
 
 const TIERS = [
   {n:"Hierro",    c:"#8a8f98", i:"fa-shield"},
@@ -621,13 +681,13 @@ $("pay").addEventListener("click", async () => {
   const region = $("region").value;
   const fe = $("formErr");
   fe.classList.add("hidden");
+  if (!session) { openAuth("login"); return; }
   if (!r.valid) { fe.textContent = tr("errFix"); fe.classList.remove("hidden"); return; }
   if (!tag || !region) { fe.textContent = tr("errFill"); fe.classList.remove("hidden"); return; }
   if (r.extras.some(e => e.id === "champs") && !agentsList().length) {
     fe.textContent = tr("errAgent"); fe.classList.remove("hidden"); return;
   }
   const summary = buildSummary(r, tag, region).slice(0, 1900);
-  if (window.vbsdChat && await window.vbsdChat.submit(summary)) return;
   const btn = $("pay");
   const okEl = $("ok");
   btn.disabled = true;
@@ -637,20 +697,18 @@ $("pay").addEventListener("click", async () => {
   const copied = await copyText(summary);
 
   let sent = false;
-  if (WEBHOOK_URL) {
-    try {
-      const res = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "VBSD Boost - Pedidos",
-          content: summary,
-          allowed_mentions: { parse: [] }
-        })
-      });
-      sent = res.ok;
-    } catch (_) { sent = false; }
-  }
+  try {
+    const res = await fetch(ORDER_FN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + session.access_token
+      },
+      body: JSON.stringify({ content: summary })
+    });
+    sent = res.ok;
+  } catch (_) { sent = false; }
 
   if (sent) {
     okEl.textContent = tr("okSent");
@@ -696,133 +754,5 @@ setInterval(loadRates, RATES_REFRESH_MS);
   chk.focus();
 })();
 </script>
-
-<!-- ===== Chat con cuentas (Firebase) ===== -->
-<style>
-#chFab{position:fixed;right:16px;bottom:16px;z-index:40;background:#b24dff;color:#fff;border-radius:999px;padding:12px 18px;font-weight:700;box-shadow:0 6px 20px -6px #b24dff}
-#chPanel{position:fixed;right:16px;bottom:72px;z-index:40;width:min(380px,calc(100vw - 32px));height:min(540px,calc(100vh - 100px));display:none;flex-direction:column;background:#17122f;border:1px solid #2b2352;border-radius:14px;overflow:hidden;color:#fff}
-#chHead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #2b2352}
-#chHead button{background:none;color:#a9a2cf;margin-left:10px;font-size:14px}
-#chBody{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
-#chBody input,#chBody textarea{background:#120e27;border:1px solid #2b2352;border-radius:8px;padding:9px 11px;color:#fff;width:100%;font-size:14px}
-#chBody input:focus,#chBody textarea:focus{border-color:#35e0ff;outline:none}
-.chBtn{background:#b24dff;color:#fff;border-radius:8px;padding:9px 12px;font-weight:600;font-size:14px;width:100%}
-.chBtn.alt{background:#120e27;border:1px solid #2b2352}
-.chNote{font-size:13px;color:#a9a2cf}.chErr{font-size:13px;color:#ff8aa8}
-.chItem{text-align:left;background:#120e27;border:1px solid #2b2352;border-radius:8px;padding:10px;width:100%;font-size:14px}
-.chItem small{display:block;color:#a9a2cf;margin-top:2px}
-.chMsg{display:flex;flex-direction:column;align-items:flex-start;max-width:85%}
-.chMsg.me{align-self:flex-end;align-items:flex-end}
-.chMsg small{font-size:11px;color:#a9a2cf;margin-bottom:2px}
-.chBub{background:#1d1740;border:1px solid #2b2352;border-radius:10px;padding:7px 10px;font-size:14px;white-space:pre-wrap;word-break:break-word}
-.chMsg.me .chBub{background:#b24dff;border-color:#b24dff}
-</style>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-(function(){
-// Pega aquí la config de tu proyecto Firebase (Configuración del proyecto > Tus apps > Web).
-// Si apiKey queda vacío, el chat se desactiva y el sitio funciona como antes (Discord).
-var CFG = { apiKey:"", authDomain:"", projectId:"", appId:"" };
-
-window.vbsdChat = { submit: function(){ return Promise.resolve(false); } };
-if (!CFG.apiKey || !window.firebase) return;
-
-firebase.initializeApp(CFG);
-var auth = firebase.auth(), db = firebase.firestore();
-var user = null, isStaff = false, unsub = null;
-
-var S = {
- es:{chat:"💬 Chat",account:"Tu cuenta",email:"Usuario",pass:"Contraseña (mín. 6)",google:"Entrar con Google",login:"Entrar",signup:"Crear cuenta",needLogin:"Crea tu usuario o entra para enviar tu pedido. Después vuelve a tocar el botón.",authErr:"No se pudo. Revisa los datos e intenta de nuevo.",verifyT:"Verifica tu email",verifyP:"Te enviamos un correo a {e}. Ábrelo, confirma y vuelve acá.",verified:"Ya verifiqué",resend:"Reenviar correo",notYet:"Todavía no figura como verificado.",sent:"Correo enviado.",myOrders:"Mis pedidos",allOrders:"Todos los pedidos",none:"Todavía no hay pedidos.",loadErr:"No se pudo cargar.",back:"← Volver",order:"Ver pedido",msgPh:"Escribe un mensaje…",send:"Enviar",staff:"Staff",client:"Cliente",logout:"Salir",exists:"Ese usuario ya existe.",badLogin:"Usuario o contraseña incorrectos.",badUser:"Usuario: 3 a 20 letras, números, . _ -",weak:"La contraseña debe tener al menos 6 caracteres."},
- pt:{chat:"💬 Chat",account:"Sua conta",email:"Usuário",pass:"Senha (mín. 6)",google:"Entrar com Google",login:"Entrar",signup:"Criar conta",needLogin:"Crie seu usuário ou entre para enviar seu pedido. Depois toque no botão de novo.",authErr:"Não deu certo. Confira os dados e tente de novo.",verifyT:"Verifique seu email",verifyP:"Enviamos um email para {e}. Abra, confirme e volte aqui.",verified:"Já verifiquei",resend:"Reenviar email",notYet:"Ainda não consta como verificado.",sent:"Email enviado.",myOrders:"Meus pedidos",allOrders:"Todos os pedidos",none:"Ainda não há pedidos.",loadErr:"Não foi possível carregar.",back:"← Voltar",order:"Ver pedido",msgPh:"Escreva uma mensagem…",send:"Enviar",staff:"Staff",client:"Cliente",logout:"Sair",exists:"Esse usuário já existe.",badLogin:"Usuário ou senha incorretos.",badUser:"Usuário: 3 a 20 letras, números, . _ -",weak:"A senha deve ter pelo menos 6 caracteres."}
-};
-function t(k){ return S[(typeof lang!=="undefined" && lang==="pt")?"pt":"es"][k]; }
-function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
-function btn(txt, fn, alt){ var b=el("button","chBtn"+(alt?" alt":""),txt); b.type="button"; b.onclick=fn; return b; }
-function inp(type, ph){ var i=el("input"); i.type=type; i.placeholder=ph; i.autocomplete=type==="password"?"current-password":"email"; return i; }
-function ms(ts){ return ts && ts.toMillis ? ts.toMillis() : Date.now(); }
-function grab(s,k){ var m=new RegExp("^"+k+": (.*)$","m").exec(s||""); return m?m[1]:"?"; }
-
-var wrap = el("div");
-wrap.innerHTML = '<button id="chFab" type="button"></button><div id="chPanel"><div id="chHead"><b id="chTitle"></b><span><button id="chOut" type="button"></button><button id="chX" type="button">✕</button></span></div><div id="chBody"></div></div>';
-document.body.appendChild(wrap);
-var fab=document.getElementById("chFab"), panel=document.getElementById("chPanel"), bodyEl=document.getElementById("chBody"), titleEl=document.getElementById("chTitle"), outEl=document.getElementById("chOut");
-fab.textContent = t("chat"); outEl.textContent = t("logout");
-
-function body(){ if(unsub){unsub();unsub=null;} bodyEl.textContent=""; return bodyEl; }
-function open(){ panel.style.display="flex"; }
-fab.onclick = function(){ if(panel.style.display==="flex"){ panel.style.display="none"; return; } open(); route(); };
-document.getElementById("chX").onclick = function(){ panel.style.display="none"; };
-outEl.onclick = function(){ auth.signOut(); };
-
-function viewAuth(msg){
-  titleEl.textContent=t("account"); outEl.style.display="none"; var b=body();
-  if(msg) b.appendChild(el("p","chNote",msg));
-  var un=inp("text",t("email")), pw=inp("password",t("pass")), err=el("p","chErr","");
-  un.autocomplete="username"; un.maxLength=20;
-  function mail(){ var u=un.value.trim().toLowerCase(); if(!/^[a-z0-9_.-]{3,20}$/.test(u)){ err.textContent=t("badUser"); return null; } return u+"@vbsdboost.app"; }
-  function bad(e){ var c=e.code||""; err.textContent = c==="auth/email-already-in-use"?t("exists"): c==="auth/weak-password"?t("weak"): (c==="auth/invalid-credential"||c==="auth/wrong-password"||c==="auth/user-not-found")?t("badLogin"): t("authErr")+" ("+c.replace("auth/","")+")"; }
-  b.appendChild(un); b.appendChild(pw);
-  b.appendChild(btn(t("login"),function(){ var m=mail(); if(m) auth.signInWithEmailAndPassword(m,pw.value).catch(bad); }));
-  b.appendChild(btn(t("signup"),function(){ var m=mail(); if(m) auth.createUserWithEmailAndPassword(m,pw.value).catch(bad); },true));
-  b.appendChild(err);
-}
-function viewList(){
-  titleEl.textContent=isStaff?t("allOrders"):t("myOrders"); outEl.style.display=""; var b=body(), list=el("div"); list.style.cssText="display:flex;flex-direction:column;gap:8px"; b.appendChild(list);
-  var q = isStaff ? db.collection("orders").orderBy("createdAt","desc").limit(50) : db.collection("orders").where("uid","==",user.uid);
-  unsub = q.onSnapshot(function(s){
-    var rows = s.docs.map(function(d){ return {id:d.id,d:d.data()}; }).sort(function(a,b){ return ms(b.d.createdAt)-ms(a.d.createdAt); });
-    list.textContent="";
-    if(!rows.length){ list.appendChild(el("p","chNote",t("none"))); return; }
-    rows.forEach(function(r){
-      var it=el("button","chItem",grab(r.d.summary,"Rango inicial")+" → "+grab(r.d.summary,"Rango final")); it.type="button";
-      it.appendChild(el("small","",(isStaff?grab(r.d.summary,"Discord")+" · ":"")+new Date(ms(r.d.createdAt)).toLocaleString()));
-      it.onclick=function(){ viewChat(r.id,r.d.summary); }; list.appendChild(it);
-    });
-  }, function(){ list.textContent=t("loadErr"); });
-}
-function viewChat(id, summary){
-  titleEl.textContent=t("order"); outEl.style.display=""; var b=body();
-  b.appendChild(btn(t("back"),viewList,true));
-  var det=el("details","chNote"); det.appendChild(el("summary","",t("order"))); var pre=el("pre","",summary||""); pre.style.cssText="white-space:pre-wrap;font-size:12px;margin-top:6px"; det.appendChild(pre); b.appendChild(det);
-  var box=el("div"); box.style.cssText="flex:1;display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:120px"; b.appendChild(box);
-  var ta=el("textarea"); ta.rows=2; ta.placeholder=t("msgPh"); ta.maxLength=1000;
-  var msgs=db.collection("orders").doc(id).collection("messages");
-  function send(){ var v=ta.value.trim(); if(!v) return; ta.value=""; msgs.add({uid:user.uid,staff:isStaff,name:user.displayName||(user.email||"").split("@")[0],text:v,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); }
-  ta.onkeydown=function(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } };
-  b.appendChild(ta); b.appendChild(btn(t("send"),send));
-  unsub = msgs.orderBy("createdAt").onSnapshot(function(s){
-    box.textContent="";
-    s.docs.forEach(function(d){ var m=d.data(), mine=m.uid===user.uid, row=el("div","chMsg"+(mine?" me":""));
-      if(!mine) row.appendChild(el("small","",m.staff?t("staff")+" · "+(m.name||""):t("client")));
-      row.appendChild(el("div","chBub",m.text)); box.appendChild(row); });
-    box.scrollTop=box.scrollHeight;
-  });
-}
-function route(){
-  if(!user) return viewAuth();
-  viewList();
-}
-auth.onAuthStateChanged(function(u){
-  user=u; isStaff=false;
-  fab.textContent = t("chat");
-  if(!u){ if(panel.style.display==="flex") viewAuth(); return; }
-  db.doc("staff/"+u.uid).get().then(function(d){ isStaff=d.exists; }).catch(function(){ isStaff=false; }).then(function(){ if(panel.style.display==="flex") route(); });
-});
-
-window.vbsdChat.submit = async function(summary){
-  if(!user){ open(); viewAuth(t("needLogin")); return true; }
-  try{
-    var ref = await db.collection("orders").add({uid:user.uid,user:(user.email||"").split("@")[0],summary:summary,status:"nuevo",createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    if(typeof WEBHOOK_URL!=="undefined" && WEBHOOK_URL){
-      fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:"VBSD Boost - Pedidos",content:(summary+"\nChat ID: "+ref.id).slice(0,2000),allowed_mentions:{parse:[]}})}).catch(function(){});
-    }
-    open(); viewChat(ref.id,summary); return true;
-  }catch(e){ return false; }
-};
-})();
-</script>
-
 </body>
 </html>

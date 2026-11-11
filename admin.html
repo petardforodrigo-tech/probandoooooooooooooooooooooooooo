@@ -255,7 +255,7 @@ function card(o){
   const node = el("div", { class: "panel order" },
     el("div", { class: "oh" },
       el("div", {},
-        el("div", { class: "oid", text: "Pedido #" + o.id + (o.auction_id ? " · Marketplace" : "") }),
+        el("div", { class: "oid", text: "Pedido #" + o.id }),
         el("div", { class: "meta", text: when + " · " + (o.user_email || "—") }),
         el("div", { class: "meta", text: "Discord: " + (o.discord_tag || "—") + " · Servidor: " + (o.region || "—") })
       ),
@@ -279,7 +279,7 @@ function visible(){
   return orders.filter(o => {
     if (filter !== "todos" && o.status !== filter) return false;
     if (!q) return true;
-    return ("#" + o.id + " " + o.id + " " + (o.user_email || "") + " " + (o.discord_tag || "") + " " + (o.booster || "") + (o.auction_id ? " marketplace" : "")).toLowerCase().includes(q);
+    return ("#" + o.id + " " + o.id + " " + (o.user_email || "") + " " + (o.discord_tag || "") + " " + (o.booster || "")).toLowerCase().includes(q);
   });
 }
 function renderTabs(){

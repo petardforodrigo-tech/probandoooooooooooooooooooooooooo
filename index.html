@@ -171,8 +171,7 @@ const SUPABASE_URL = "https://lypgmhipcqxabqcplvta.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_mBWgojSoYsBLCaMpDU9cZQ_W-KYqolr";
 const ORDER_FN_URL = SUPABASE_URL + "/functions/v1/send-order";
 // ================================================================
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-let session = null, authMode = "login";
+let sb = null, session = null, authMode = "login";
 const $a = id => document.getElementById(id);
 function refreshAuthUI(){
   $a("authState").textContent = session ? session.user.email : "Necesitas una cuenta para pedir";
@@ -183,27 +182,56 @@ function setMode(m){
   $a("authTitle").textContent = m === "login" ? "Inicia sesión" : "Crea tu cuenta";
   $a("authGo").textContent = m === "login" ? "Entrar" : "Crear cuenta";
   $a("authSwitch").textContent = m === "login" ? "¿No tienes cuenta? Crear una" : "¿Ya tienes cuenta? Entrar";
+  $a("authPass").autocomplete = m === "login" ? "current-password" : "new-password";
   $a("authMsg").classList.add("hidden");
 }
 function openAuth(m){ setMode(m || "login"); $a("authModal").style.display = "flex"; }
 function closeAuth(){ $a("authModal").style.display = "none"; }
 function authMsg(t){ $a("authMsg").textContent = t; $a("authMsg").classList.remove("hidden"); }
-sb.auth.getSession().then(({data}) => { session = data.session; refreshAuthUI(); });
-sb.auth.onAuthStateChange((_e, s) => { session = s; refreshAuthUI(); });
-$a("authBtn").onclick = () => session ? sb.auth.signOut() : openAuth("login");
+function friendlyErr(e){
+  const m = (e && e.message) || String(e);
+  if (/failed to fetch|networkerror|load failed/i.test(m)) return "No se pudo conectar con el servidor de cuentas. Revisa tu conexión, o que el sitio permita conectarse a supabase.co.";
+  if (/already registered/i.test(m)) return "Ese email ya está registrado. Prueba a entrar.";
+  if (/invalid login/i.test(m)) return "Email o contraseña incorrectos.";
+  if (/not confirmed/i.test(m)) return "Primero confirma tu email (revisa tu bandeja y spam).";
+  if (/rate limit/i.test(m)) return "Se enviaron demasiados emails de confirmación. Espera un rato e inténtalo de nuevo.";
+  if (/signups? (not allowed|are disabled)|disabled/i.test(m)) return "El registro está desactivado en el servidor.";
+  if (/sending (confirmation|email)|smtp/i.test(m)) return "El servidor no pudo enviar el email de confirmación.";
+  return m;
+}
+// Primero lo visual y los clicks: así el botón aparece y funciona aunque Supabase falle al cargar.
+refreshAuthUI();
+$a("authBtn").onclick = () => session ? (sb && sb.auth.signOut()) : openAuth("login");
 $a("authClose").onclick = closeAuth;
 $a("authSwitch").onclick = () => setMode(authMode === "login" ? "signup" : "login");
+try {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb.auth.getSession().then(({data}) => { session = data.session; refreshAuthUI(); }).catch(e => console.error(e));
+  sb.auth.onAuthStateChange((_e, s) => { session = s; refreshAuthUI(); });
+} catch (e) {
+  console.error("Supabase no cargó:", e);
+}
 $a("authGo").onclick = async () => {
+  if (!sb) return authMsg("No cargó el servicio de cuentas (Supabase). Recarga la página o revisa tu conexión.");
   const email = $a("authEmail").value.trim(), password = $a("authPass").value;
   if (!email || password.length < 6) return authMsg("Email y contraseña (mínimo 6 caracteres).");
   $a("authGo").disabled = true;
-  const res = authMode === "login"
-    ? await sb.auth.signInWithPassword({ email, password })
-    : await sb.auth.signUp({ email, password });
-  $a("authGo").disabled = false;
-  if (res.error) return authMsg(res.error.message);
-  if (authMode === "signup" && !res.data.session) return authMsg("Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.");
-  closeAuth();
+  try {
+    const res = authMode === "login"
+      ? await sb.auth.signInWithPassword({ email, password })
+      : await sb.auth.signUp({ email, password });
+    if (res.error) return authMsg(friendlyErr(res.error));
+    if (authMode === "signup") {
+      const u = res.data && res.data.user;
+      if (u && u.identities && u.identities.length === 0) return authMsg("Ese email ya está registrado. Prueba a entrar.");
+      if (!res.data.session) return authMsg("Cuenta creada. Revisa tu email (y spam) para confirmarla y luego inicia sesión.");
+    }
+    closeAuth();
+  } catch (e) {
+    authMsg(friendlyErr(e));
+  } finally {
+    $a("authGo").disabled = false;
+  }
 };
 </script>
 
@@ -402,7 +430,8 @@ const I18N = {
     errAgent: "Elige al menos un agente o escribe cuál quieres.",
     okSent: "¡Pedido enviado! Redirigiendo a Discord… abre un ticket para continuar.",
     okCopied: "Resumen copiado. Redirigiendo a Discord… pégalo en el ticket.",
-    okFail: "No se pudo enviar ni copiar el resumen. Escríbelo manualmente en el ticket."
+    okFail: "No se pudo enviar ni copiar el resumen. Escríbelo manualmente en el ticket.",
+    errLimit: "Ya enviaste 2 pedidos en los últimos 15 minutos. Espera un poco antes de mandar otro."
   },
   pt: {
     title: "VBSD Boost | Suba de elo rápido",
@@ -456,7 +485,8 @@ const I18N = {
     errAgent: "Escolha pelo menos um agente ou escreva qual você quer.",
     okSent: "Pedido enviado! Redirecionando para o Discord… abra um ticket para continuar.",
     okCopied: "Resumo copiado. Redirecionando para o Discord… cole no ticket.",
-    okFail: "Não foi possível enviar nem copiar o resumo. Escreva manualmente no ticket."
+    okFail: "Não foi possível enviar nem copiar o resumo. Escreva manualmente no ticket.",
+    errLimit: "Você já enviou 2 pedidos nos últimos 15 minutos. Aguarde um pouco antes de enviar outro."
   }
 };
 let lang = "es";
@@ -696,7 +726,7 @@ $("pay").addEventListener("click", async () => {
   // Siempre copiamos el resumen como respaldo
   const copied = await copyText(summary);
 
-  let sent = false;
+  let sent = false, limited = false;
   try {
     const res = await fetch(ORDER_FN_URL, {
       method: "POST",
@@ -708,7 +738,16 @@ $("pay").addEventListener("click", async () => {
       body: JSON.stringify({ content: summary })
     });
     sent = res.ok;
+    limited = res.status === 429;
   } catch (_) { sent = false; }
+
+  if (limited) {
+    fe.textContent = tr("errLimit");
+    fe.classList.remove("hidden");
+    btn.disabled = false;
+    btn.classList.remove("opacity-60", "cursor-not-allowed");
+    return;
+  }
 
   if (sent) {
     okEl.textContent = tr("okSent");

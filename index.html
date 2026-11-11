@@ -875,7 +875,7 @@ setInterval(loadRates, RATES_REFRESH_MS);
   }
   function tabs() {
     const t = [["mine","Mis pedidos"]];
-    if (role.booster || role.admin) t.push(["open","Subastas abiertas"]);
+    if (role.booster) t.push(["open","Subastas abiertas"]);
     t.push(["chats", role.admin ? "Chats (admin)" : "Chats"]);
     if (role.admin) t.push(["boosters","Boosters"]);
     $("mkTabs").innerHTML = t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");

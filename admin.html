@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin | VBSD Boost</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e0a1f;--panel:#17122f;--panel2:#120e27;--line:#2b2352;--txt:#e7e3f7;--mut:#a9a2cf;--acc:#b24dff;--cy:#35e0ff;--ok:#2ecc71;--warn:#f5c542;--bad:#ff8aa8}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Rubik',sans-serif;min-height:100vh;
+    background-image:radial-gradient(900px 500px at 85% -10%,rgba(178,77,255,.16),transparent)}
+  h1,h2,.display{font-family:'Chakra Petch',sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+  .inp{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:8px 10px;font:inherit;width:100%}
+  .inp:focus{outline:2px solid var(--cy);outline-offset:1px;border-color:var(--cy)}
+  .btn{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-family:'Chakra Petch',sans-serif;font-weight:700;cursor:pointer}
+  .btn:hover{background:#c46bff}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--cy)}
+  .btn.ghost:hover{border-color:var(--cy)}
+  .btn.ok{background:var(--ok);color:#06210f}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .hide{display:none!important}
+  .center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .who{color:var(--mut);font-size:14px;word-break:break-all}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+  .stat{padding:14px 16px}
+  .stat .l{color:var(--mut);font-size:13px}
+  .stat .v{font-family:'Chakra Petch',sans-serif;font-size:26px;font-weight:700;margin-top:2px}
+  .stat .s{color:var(--mut);font-size:12px;margin-top:2px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .tab.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .order{padding:14px 16px;margin-bottom:12px}
+  .oh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+  .oid{font-family:'Chakra Petch',sans-serif;font-size:18px;font-weight:700}
+  .meta{color:var(--mut);font-size:13px;margin-top:2px;word-break:break-word}
+  .price{font-family:'Chakra Petch',sans-serif;font-size:18px;font-weight:700}
+  .badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;border:1px solid var(--line)}
+  .b-pendiente{color:var(--warn);border-color:var(--warn)}
+  .b-pagado{color:var(--ok);border-color:var(--ok)}
+  .b-en_curso{color:var(--cy);border-color:var(--cy)}
+  .b-terminado{color:#c9b6ff;border-color:#c9b6ff}
+  .b-cancelado{color:var(--bad);border-color:var(--bad)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:12px}
+  .grid label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+  .comm{margin-top:10px;font-size:14px;color:var(--cy)}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--mut);font-size:13px}
+  pre{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;margin:8px 0 0}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .err{color:var(--bad);font-size:14px;margin-top:10px}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:14px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+  #toast.on{opacity:1}
+  #toast.bad{border-color:var(--bad);color:var(--bad)}
+  .empty{color:var(--mut);text-align:center;padding:30px}
+</style>
+</head>
+<body>
+
+<div id="vLoading" class="center"><div class="display">Cargando…</div></div>
+
+<div id="vLogin" class="center hide">
+  <form id="loginForm" class="panel" style="padding:24px;width:100%;max-width:380px">
+    <h1 class="display" style="margin:0 0 4px;font-size:22px">Panel de administración</h1>
+    <p style="margin:0 0 16px;color:var(--mut);font-size:14px">Solo para el administrador.</p>
+    <label for="lEmail" style="font-size:14px">Email</label>
+    <input id="lEmail" class="inp" type="email" autocomplete="email" style="margin:4px 0 12px">
+    <label for="lPass" style="font-size:14px">Contraseña</label>
+    <input id="lPass" class="inp" type="password" autocomplete="current-password" style="margin:4px 0 12px">
+    <p id="lErr" class="err hide"></p>
+    <button id="lGo" class="btn" type="submit" style="width:100%;margin-top:6px">Entrar</button>
+  </form>
+</div>
+
+<div id="vDenied" class="center hide">
+  <div class="panel" style="padding:24px;width:100%;max-width:420px;text-align:center">
+    <h1 class="display" style="margin:0 0 8px;font-size:22px">Sin acceso</h1>
+    <p style="color:var(--mut);font-size:14px;margin:0 0 4px">La cuenta <b id="dEmail"></b> no es administradora.</p>
+    <p style="color:var(--mut);font-size:14px;margin:0 0 16px">Si es la tuya, falta agregarla como administrador en Supabase.</p>
+    <button class="btn ghost" data-logout>Cerrar sesión</button>
+  </div>
+</div>
+
+<div id="vApp" class="wrap hide">
+  <div class="top">
+    <div>
+      <h1 class="display" style="margin:0;font-size:26px">Pedidos</h1>
+      <div class="who">Sesión: <span id="who"></span></div>
+    </div>
+    <div class="row" style="margin:0">
+      <button id="btnRefresh" class="btn ghost" type="button">Actualizar</button>
+      <button class="btn ghost" type="button" data-logout>Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="bar">
+    <div style="width:170px">
+      <label for="pct" style="display:block;font-size:12px;color:var(--mut);margin-bottom:3px">Tu comisión (%)</label>
+      <input id="pct" class="inp" type="number" min="0" max="100" step="1">
+    </div>
+    <div style="flex:1;min-width:200px">
+      <label for="search" style="display:block;font-size:12px;color:var(--mut);margin-bottom:3px">Buscar</label>
+      <input id="search" class="inp" placeholder="Número, email, Discord o booster">
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="list"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = "https://lypgmhipcqxabqcplvta.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mBWgojSoYsBLCaMpDU9cZQ_W-KYqolr";
+
+const STATUS = { pendiente:"Pendiente", pagado:"Pagado", en_curso:"En curso", terminado:"Terminado", cancelado:"Cancelado" };
+const COBRADO = ["pagado", "en_curso", "terminado"]; // estados que cuentan como dinero ya cobrado
+const $ = id => document.getElementById(id);
+const money = n => "$" + Math.round(n || 0).toLocaleString("es-AR");
+
+let sb = null, session = null, orders = [], pct = 25, filter = "todos", query = "", routeId = 0;
+const refs = {};
+
+function el(tag, props, ...kids){
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
+    else if (k === "value") e.value = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => { if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); });
+  return e;
+}
+function show(name){
+  ["vLoading","vLogin","vDenied","vApp"].forEach(v => $(v).classList.add("hide"));
+  $(name).classList.remove("hide");
+}
+let toastT;
+function toast(msg, bad){
+  const t = $("toast");
+  t.textContent = msg; t.className = "on" + (bad ? " bad" : "");
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = "", 2200);
+}
+function fatal(msg){
+  show("vLogin");
+  $("lErr").textContent = msg; $("lErr").classList.remove("hide");
+}
+
+// ---------- Sesión y acceso ----------
+async function route(){
+  const my = ++routeId;
+  if (!session) { show("vLogin"); return; }
+  show("vLoading");
+  const { data, error } = await sb.from("admins").select("user_id").eq("user_id", session.user.id).maybeSingle();
+  if (my !== routeId) return;
+  if (error) { fatal("Error al comprobar el acceso: " + error.message); return; }
+  if (!data) { $("dEmail").textContent = session.user.email; show("vDenied"); return; }
+  $("who").textContent = session.user.email;
+  show("vApp");
+  await loadAll(my);
+}
+async function loadAll(my){
+  const [s, o] = await Promise.all([
+    sb.from("admin_settings").select("commission_pct").eq("id", 1).maybeSingle(),
+    sb.from("orders").select("*").order("id", { ascending: false }).limit(500)
+  ]);
+  if (my && my !== routeId) return;
+  if (o.error) { toast("No se pudieron cargar los pedidos: " + o.error.message, true); return; }
+  if (s.data) pct = Number(s.data.commission_pct);
+  $("pct").value = pct;
+  orders = o.data || [];
+  render();
+}
+
+// ---------- Cálculos ----------
+function comm(o){
+  const amt = Number(o.price_ars) || 0;
+  const mine = amt * pct / 100;
+  return { amt, mine, booster: amt - mine };
+}
+function renderStats(){
+  const cobrados = orders.filter(o => COBRADO.includes(o.status));
+  const pend = orders.filter(o => o.status === "pendiente");
+  const cobrado = cobrados.reduce((t, o) => t + (Number(o.price_ars) || 0), 0);
+  const pendiente = pend.reduce((t, o) => t + (Number(o.price_ars) || 0), 0);
+  const mine = cobrado * pct / 100;
+  const box = (l, v, s) => el("div", { class: "panel stat" },
+    el("div", { class: "l", text: l }), el("div", { class: "v", text: v }), el("div", { class: "s", text: s }));
+  const st = $("stats");
+  st.replaceChildren(
+    box("Cobrado", money(cobrado), cobrados.length + " pedidos pagados"),
+    box("Tu comisión (" + pct + "%)", money(mine), "sobre lo cobrado"),
+    box("Para los boosters", money(cobrado - mine), "a pagarles"),
+    box("Pendiente de cobro", money(pendiente), pend.length + " pedidos sin pagar")
+  );
+}
+
+// ---------- Actualizar un pedido ----------
+async function patch(o, fields){
+  const { error } = await sb.from("orders").update(fields).eq("id", o.id);
+  if (error) { toast("Error: " + error.message, true); return false; }
+  Object.assign(o, fields);
+  updateCard(o); renderStats(); renderTabs();
+  toast("Guardado");
+  return true;
+}
+function updateCard(o){
+  const r = refs[o.id]; if (!r) return;
+  r.badge.textContent = STATUS[o.status];
+  r.badge.className = "badge b-" + o.status;
+  r.sel.value = o.status;
+  r.pay.classList.toggle("hide", o.status !== "pendiente");
+  const c = comm(o);
+  r.comm.textContent = c.amt > 0
+    ? "Tu comisión (" + pct + "%): " + money(c.mine) + "  ·  Booster: " + money(c.booster)
+    : (o.quote ? "Precio a convenir: escribe el monto para calcular la comisión." : "Sin monto: escríbelo para calcular la comisión.");
+  r.price.textContent = c.amt > 0 ? money(c.amt) : (o.price_text || "—");
+}
+
+// ---------- Dibujar ----------
+function card(o){
+  const badge = el("span", { class: "badge" });
+  const price = el("div", { class: "price" });
+  const sel = el("select", { class: "inp" }, Object.entries(STATUS).map(([k, v]) => el("option", { value: k, text: v })));
+  sel.addEventListener("change", () => {
+    const f = { status: sel.value };
+    if (sel.value === "pagado" && !o.paid_at) f.paid_at = new Date().toISOString();
+    patch(o, f);
+  });
+  const amount = el("input", { class: "inp", type: "number", min: "0", step: "1", placeholder: "Monto en ARS" });
+  amount.value = o.price_ars != null ? o.price_ars : "";
+  amount.addEventListener("change", () => {
+    const v = amount.value.trim();
+    patch(o, { price_ars: v === "" ? null : Math.max(0, Number(v)) });
+  });
+  const booster = el("input", { class: "inp", type: "text", placeholder: "Nombre del booster", maxlength: "80" });
+  booster.value = o.booster || "";
+  booster.addEventListener("change", () => patch(o, { booster: booster.value.trim() || null }));
+  const pay = el("button", { class: "btn ok", type: "button", text: "Marcar como pagado" });
+  pay.addEventListener("click", () => patch(o, { status: "pagado", paid_at: new Date().toISOString() }));
+  const commEl = el("div", { class: "comm" });
+
+  const when = new Date(o.created_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+  const node = el("div", { class: "panel order" },
+    el("div", { class: "oh" },
+      el("div", {},
+        el("div", { class: "oid", text: "Pedido #" + o.id }),
+        el("div", { class: "meta", text: when + " · " + (o.user_email || "—") }),
+        el("div", { class: "meta", text: "Discord: " + (o.discord_tag || "—") + " · Servidor: " + (o.region || "—") })
+      ),
+      el("div", { style: "text-align:right" }, price, badge)
+    ),
+    el("div", { class: "grid" },
+      el("div", {}, el("label", { text: "Estado" }), sel),
+      el("div", {}, el("label", { text: "Monto (ARS)" }), amount),
+      el("div", {}, el("label", { text: "Booster" }), booster)
+    ),
+    commEl,
+    el("div", { class: "row" }, pay),
+    el("details", {}, el("summary", { text: "Ver detalle del pedido" }), el("pre", { text: o.summary || "" }))
+  );
+  refs[o.id] = { badge, price, sel, pay, comm: commEl };
+  updateCard(o);
+  return node;
+}
+function visible(){
+  const q = query.toLowerCase();
+  return orders.filter(o => {
+    if (filter !== "todos" && o.status !== filter) return false;
+    if (!q) return true;
+    return ("#" + o.id + " " + o.id + " " + (o.user_email || "") + " " + (o.discord_tag || "") + " " + (o.booster || "")).toLowerCase().includes(q);
+  });
+}
+function renderTabs(){
+  const count = k => k === "todos" ? orders.length : orders.filter(o => o.status === k).length;
+  $("tabs").replaceChildren(...["todos", ...Object.keys(STATUS)].map(k =>
+    el("button", {
+      class: "tab" + (filter === k ? " on" : ""), type: "button",
+      text: (k === "todos" ? "Todos" : STATUS[k]) + " (" + count(k) + ")",
+      onclick: () => { filter = k; render(); }
+    })
+  ));
+}
+function renderList(){
+  for (const k in refs) delete refs[k];
+  const list = visible();
+  $("list").replaceChildren(...(list.length ? list.map(card) : [el("div", { class: "empty", text: "No hay pedidos para mostrar." })]));
+}
+function render(){ renderStats(); renderTabs(); renderList(); }
+
+// ---------- Eventos ----------
+$("search").addEventListener("input", e => { query = e.target.value.trim(); renderList(); });
+$("btnRefresh").addEventListener("click", async () => { await loadAll(0); toast("Actualizado"); });
+$("pct").addEventListener("change", async e => {
+  const v = Number(e.target.value);
+  if (!(v >= 0 && v <= 100)) { e.target.value = pct; return toast("Pon un número entre 0 y 100", true); }
+  const { error } = await sb.from("admin_settings").update({ commission_pct: v }).eq("id", 1);
+  if (error) { e.target.value = pct; return toast("Error: " + error.message, true); }
+  pct = v; render(); toast("Comisión guardada");
+});
+document.querySelectorAll("[data-logout]").forEach(b => b.addEventListener("click", () => sb && sb.auth.signOut()));
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("lEmail").value.trim(), password = $("lPass").value;
+  const err = $("lErr"); err.classList.add("hide");
+  if (!email || !password) { err.textContent = "Escribe tu email y contraseña."; err.classList.remove("hide"); return; }
+  $("lGo").disabled = true;
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { err.textContent = /invalid/i.test(error.message) ? "Email o contraseña incorrectos." : error.message; err.classList.remove("hide"); }
+  } catch (x) {
+    err.textContent = "No se pudo conectar con Supabase."; err.classList.remove("hide");
+  } finally { $("lGo").disabled = false; }
+});
+
+// ---------- Inicio ----------
+try {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange((_ev, s) => { session = s; setTimeout(route, 0); });
+  // Respaldo por si el evento inicial no llega
+  sb.auth.getSession().then(({ data }) => { if (routeId === 0) { session = data.session; route(); } }).catch(() => {});
+} catch (e) {
+  fatal("No cargó Supabase. Recarga la página o revisa tu conexión.");
+}
+</script>
+</body>
+</html>

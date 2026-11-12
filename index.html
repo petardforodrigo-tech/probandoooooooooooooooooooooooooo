@@ -60,7 +60,6 @@
       <span id="userAvatar" class="display flex items-center justify-center rounded-full font-bold text-white shrink-0" style="width:28px;height:28px;background:#b24dff"></span>
       <span id="userName" class="truncate text-[#e7e3f7]" style="max-width:45vw"></span>
     </div>
-    <button id="mkBtn" type="button" class="whitespace-nowrap rounded-lg px-3 py-1 border border-[#b24dff] text-[#e7e3f7] hover:bg-[#b24dff] transition"><i class="fa-solid fa-gavel mr-1"></i>Marketplace</button>
     <button id="topAuthBtn" type="button" class="whitespace-nowrap rounded-lg px-3 py-1 border border-[#2b2352] text-[#35e0ff] hover:border-[#35e0ff] transition"></button>
   </div>
 </div>
@@ -156,13 +155,6 @@
       </section>
     </aside>
   </div>
-
-  <section id="mk" class="mt-12 pt-8 border-t border-[#2b2352]">
-    <h2 class="display text-2xl font-bold mb-1"><i class="fa-solid fa-gavel text-[#b24dff] mr-2"></i>Marketplace</h2>
-    <p class="text-sm text-[#a9a2cf] mb-4">Publica tu pedido, los boosters ofertan su precio y tú eliges.</p>
-    <div id="mkTabs" class="flex flex-wrap gap-2 mb-4"></div>
-    <div id="mkBody"></div>
-  </section>
 
   <footer data-i18n="footer" class="mt-12 text-xs text-[#8d86b5] max-w-3xl leading-relaxed">
     Al enviar tu orden, aceptas nuestros términos de servicio y reconoces que el uso de servicios de terceros en tu cuenta infringe los Términos de Servicio del juego, por lo que existe riesgo de sanción o suspensión de la cuenta. El cliente asume ese riesgo bajo su propia responsabilidad.
@@ -848,171 +840,6 @@ setInterval(loadRates, RATES_REFRESH_MS);
   });
   no.addEventListener("click", function(){ declined.classList.remove("hidden"); });
   chk.focus();
-})();
-</script>
-<!-- ===== MARKETPLACE (subastas de boost) ===== -->
-<script>
-(() => {
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const ST = {open:["Abierta","#35e0ff"], assigned:["Booster elegido","#f5c542"], paid:["Pagada","#2ecc71"], done:["Terminada","#8d86b5"], cancelled:["Cancelada","#ff8aa8"]};
-  const stepLabel = s => labelOf(s === 24 ? {t:RADIANT, d:0} : {t:Math.floor(s/3), d:s%3});
-  const rank = s => `<span class="inline-flex items-center gap-1"><img src="${ICONS[s]}" alt="" class="w-7 h-7">${esc(stepLabel(s))}</span>`;
-  const stepOpts = (sel, min) => Array.from({length:25}, (_, s) => s >= min ? `<option value="${s}"${s === sel ? " selected" : ""}>${esc(stepLabel(s))}</option>` : "").join("");
-  let role = {admin:false, booster:false}, tab = "mine", D = {a:[], b:[], n:{}}, chat = null, timer = null;
-  const me = () => session && session.user.id;
-
-  async function load() {
-    const [A, B, N] = await Promise.all([
-      sb.from("auctions").select("*").order("created_at", {ascending:false}),
-      sb.from("bids").select("*"), sb.from("boosters").select("*")]);
-    if (A.error) throw A.error;
-    D = {a:A.data || [], b:B.data || [], n:Object.fromEntries((N.data || []).map(x => [x.user_id, x.name]))};
-  }
-  async function loadRole() {
-    const [a, b] = await Promise.all([sb.rpc("is_admin"), sb.rpc("is_booster")]);
-    role = {admin:a.data === true, booster:b.data === true};
-  }
-  function tabs() {
-    const t = [["mine","Mis pedidos"]];
-    if (role.booster) t.push(["open","Subastas abiertas"]);
-    t.push(["chats", role.admin ? "Chats (admin)" : "Chats"]);
-    if (role.admin) t.push(["boosters","Boosters"]);
-    $("mkTabs").innerHTML = t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
-  }
-  const badge = s => `<span class="text-xs rounded px-2 py-0.5" style="border:1px solid ${ST[s][1]};color:${ST[s][1]}">${ST[s][0]}</span>`;
-  const head = a => `<div class="flex flex-wrap items-center justify-between gap-2"><div class="flex items-center gap-2">${rank(a.cur_step)}<i class="fa-solid fa-arrow-right-long text-[#b24dff]"></i>${rank(a.tgt_step)}</div>${badge(a.status)}</div>
-    <div class="text-xs text-[#a9a2cf] mt-2">${a.mode === "duo" ? "Dúo" : "Solo"} · ${esc(a.region)}${a.max_price ? " · tope " + fmt(a.max_price) : ""}${a.note ? "<br>" + esc(a.note) : ""}</div>`;
-
-  function form() {
-    return `<section class="panel rounded-xl p-5 mb-5"><h3 class="display text-lg font-bold mb-3">Publicar una subasta</h3>
-      <div class="grid sm:grid-cols-2 gap-3">
-        <label class="text-sm">Rango actual<select id="mkCur" class="field w-full rounded-lg px-3 py-2 mt-1">${stepOpts(0, 0)}</select></label>
-        <label class="text-sm">Rango deseado<select id="mkTgt" class="field w-full rounded-lg px-3 py-2 mt-1">${stepOpts(3, 1)}</select></label>
-        <label class="text-sm">Modalidad<select id="mkMode" class="field w-full rounded-lg px-3 py-2 mt-1"><option value="solo">Solo</option><option value="duo">Dúo</option></select></label>
-        <label class="text-sm">Servidor<select id="mkReg" class="field w-full rounded-lg px-3 py-2 mt-1"><option>BR</option><option>Santiago</option></select></label>
-        <label class="text-sm sm:col-span-2">Precio máximo en pesos ARS (opcional)<input id="mkMax" type="number" min="1" class="field w-full rounded-lg px-3 py-2 mt-1"></label>
-        <label class="text-sm sm:col-span-2">Notas (agentes, horarios…)<input id="mkNote" maxlength="300" class="field w-full rounded-lg px-3 py-2 mt-1"></label>
-      </div>
-      <p id="mkErr" class="text-sm text-[#ff8aa8] mt-3 hidden"></p>
-      <button data-act="create" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Publicar subasta</button></section>`;
-  }
-  function mineCard(a) {
-    const bids = D.b.filter(x => x.auction_id === a.id).sort((x, y) => x.price - y.price);
-    const list = a.status === "cancelled" ? "" : bids.length ? bids.map(b => `<div class="flex items-center justify-between gap-2 py-1 text-sm${b.id === a.winner_bid ? " text-[#f5c542]" : ""}">
-        <span>${esc(D.n[b.booster_id] || "Booster")}</span><span class="display font-bold">${fmt(b.price)}</span>
-        ${a.status === "open" ? `<button data-act="choose" data-id="${b.id}" type="button" class="rounded-lg px-3 py-1 bg-[#b24dff] hover:bg-[#c46bff] text-xs font-bold">Elegir</button>` : b.id === a.winner_bid ? "<span class=\"text-xs\">Elegido</span>" : ""}</div>`).join("")
-      : `<p class="text-sm text-[#a9a2cf]">Todavía no hay ofertas.</p>`;
-    return `<section class="panel rounded-xl p-4 mb-3">${head(a)}<div class="mt-3 border-t border-[#2b2352] pt-2">${list}</div>
-      <div class="flex gap-2 mt-2">${a.status === "open" ? `<button data-act="cancel" data-id="${a.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Cancelar subasta</button>` : ""}
-      ${a.status === "assigned" || a.status === "paid" ? `<button data-act="chat" data-id="${a.id}" type="button" class="text-xs text-[#35e0ff] hover:underline">Abrir chat</button>` : ""}</div><div id="chat-${a.id}"></div></section>`;
-  }
-  function openCard(a) {
-    const mine = D.b.find(x => x.auction_id === a.id && x.booster_id === me());
-    return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
-      <div class="flex flex-wrap items-center gap-2 mt-3">
-        <input id="bid-${a.id}" type="number" min="1" value="${mine ? mine.price : ""}" placeholder="Tu oferta en ARS" class="field rounded-lg px-3 py-2 text-sm w-44">
-        <button data-act="bid" data-id="${a.id}" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] hover:bg-[#c46bff] text-sm font-bold">${mine ? "Actualizar oferta" : "Ofertar"}</button>
-        ${mine ? `<button data-act="unbid" data-id="${mine.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Retirar</button><span class="text-xs text-[#a9a2cf]">Tu oferta: ${fmt(mine.price)}</span>` : ""}</div></section>`;
-  }
-  function chatCard(a) {
-    const w = D.b.find(x => x.id === a.winner_bid);
-    return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
-      <p class="text-xs text-[#a9a2cf] mt-2">Booster: ${esc(w ? (D.n[w.booster_id] || "Booster") : "—")}${w ? " · Acordado: " + fmt(w.price) : ""}</p>
-      <div class="flex gap-3 mt-2 items-center"><button data-act="chat" data-id="${a.id}" type="button" class="text-sm text-[#35e0ff] hover:underline">Abrir chat</button>
-      ${role.admin ? `<a href="admin.html" class="text-xs text-[#a9a2cf] hover:underline">Estado y pago: en el panel admin</a>` : ""}</div>
-      <div id="chat-${a.id}"></div></section>`;
-  }
-  const empty = t => `<p class="text-sm text-[#a9a2cf] py-6 text-center">${t}</p>`;
-  function render() {
-    tabs();
-    const mineA = D.a.filter(a => a.client_id === me());
-    let h = "";
-    if (tab === "mine") h = form() + (mineA.length ? mineA.map(mineCard).join("") : empty("Todavía no publicaste ninguna subasta."));
-    if (tab === "open") { const l = D.a.filter(a => a.status === "open" && a.client_id !== me()); h = l.length ? l.map(openCard).join("") : empty("No hay subastas abiertas ahora."); }
-    if (tab === "chats") { const l = D.a.filter(a => ["assigned","paid","done"].includes(a.status)); h = l.length ? l.map(chatCard).join("") : empty("Cuando una oferta sea elegida, el chat aparece acá."); }
-    if (tab === "boosters") h = `<section class="panel rounded-xl p-5 mb-5"><h3 class="display text-lg font-bold mb-1">Agregar booster</h3>
-      <p class="text-xs text-[#a9a2cf] mb-3">La persona (o vos) tiene que haber creado su cuenta en la página antes.</p>
-      <div class="grid sm:grid-cols-2 gap-3"><input id="bEmail" type="email" placeholder="Email de su cuenta" class="field rounded-lg px-3 py-2 text-sm"><input id="bName" maxlength="40" placeholder="Nombre visible" class="field rounded-lg px-3 py-2 text-sm"></div>
-      <button data-act="addb" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Agregar booster</button></section>`
-      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span>${esc(n)}</span><button data-act="rmb" data-id="${id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Quitar</button></div>`).join("") : empty("Todavía no hay boosters."));
-    $("mkBody").innerHTML = h;
-    if (chat) openChat(chat, true);
-  }
-  async function refresh() { try { await load(); render(); } catch (e) { $("mkBody").innerHTML = empty("No se pudo cargar. ¿Corriste marketplace.sql en Supabase? (" + esc(e.message) + ")"); } }
-
-  // ----- Chat en tiempo real -----
-  let ch = null;
-  function who(a, uid) {
-    if (uid === a.client_id) return "Cliente";
-    const w = D.b.find(x => x.id === a.winner_bid);
-    return w && uid === w.booster_id ? "Booster" : "Admin";
-  }
-  async function openChat(id, keep) {
-    const a = D.a.find(x => x.id === id); if (!a) return;
-    document.querySelectorAll("[id^=chat-]").forEach(e => { if (e.id !== "chat-" + id) e.innerHTML = ""; });
-    const box = $("chat-" + id); chat = id;
-    if (!keep && box.innerHTML) { box.innerHTML = ""; chat = null; return; }
-    box.innerHTML = `<div class="mt-3 border-t border-[#2b2352] pt-3"><div id="msgs" class="space-y-1 text-sm overflow-y-auto" style="max-height:260px"></div>
-      <div class="flex gap-2 mt-2"><input id="msgIn" maxlength="2000" placeholder="Escribe un mensaje…" class="field flex-1 rounded-lg px-3 py-2 text-sm"><button id="msgGo" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] text-sm font-bold">Enviar</button></div></div>`;
-    const add = m => { const d = document.createElement("div"); const mine = m.sender_id === me();
-      d.innerHTML = `<span style="color:${mine ? "#35e0ff" : "#f5c542"}">${mine ? "Tú" : who(a, m.sender_id)}:</span> `; d.append(document.createTextNode(m.body));
-      $("msgs").appendChild(d); $("msgs").scrollTop = 1e9; };
-    const { data } = await sb.from("messages").select("*").eq("auction_id", id).order("id");
-    (data || []).forEach(add);
-    if (ch) sb.removeChannel(ch);
-    ch = sb.channel("chat-" + id).on("postgres_changes", {event:"INSERT", schema:"public", table:"messages", filter:"auction_id=eq." + id}, p => { if (p.new.sender_id !== me()) add(p.new); }).subscribe();
-    const send = async () => { const v = $("msgIn").value.trim(); if (!v) return; $("msgIn").value = "";
-      const r = await sb.from("messages").insert({auction_id:id, body:v}).select().single();
-      if (r.error) alert("No se pudo enviar: " + r.error.message); else add(r.data); };
-    $("msgGo").onclick = send; $("msgIn").onkeydown = e => { if (e.key === "Enter") send(); };
-  }
-
-  // ----- Acciones -----
-  const fail = e => alert(e && e.message ? e.message : "Error");
-  $("mkBody").addEventListener("click", async e => {
-    const b = e.target.closest("[data-act]"); if (!b) return;
-    const act = b.dataset.act, id = b.dataset.id;
-    try {
-      if (act === "login") return openAuth("login");
-      if (act === "create") {
-        const cur = +$("mkCur").value, tgt = +$("mkTgt").value;
-        if (tgt <= cur) { $("mkErr").textContent = "El rango deseado debe ser mayor al actual."; $("mkErr").classList.remove("hidden"); return; }
-        const r = await sb.from("auctions").insert({cur_step:cur, tgt_step:tgt, mode:$("mkMode").value, region:$("mkReg").value, max_price:+$("mkMax").value || null, note:$("mkNote").value.trim() || null});
-        if (r.error) throw r.error;
-      }
-      if (act === "choose" && confirm("¿Elegir esta oferta? Se abrirá el chat con el booster y el admin.")) { const r = await sb.rpc("choose_bid", {p_bid:id}); if (r.error) throw r.error; chat = null; }
-      if (act === "cancel" && confirm("¿Cancelar la subasta?")) { const r = await sb.rpc("cancel_auction", {p_id:id}); if (r.error) throw r.error; }
-      if (act === "bid") {
-        const price = parseInt($("bid-" + id).value, 10); if (!(price > 0)) return alert("Pon un precio válido en ARS.");
-        const r = await sb.from("bids").upsert({auction_id:id, booster_id:me(), price}, {onConflict:"auction_id,booster_id"}); if (r.error) throw r.error;
-      }
-      if (act === "unbid") { const r = await sb.from("bids").delete().eq("id", id); if (r.error) throw r.error; }
-      if (act === "st") { const r = await sb.from("auctions").update({status:b.dataset.s}).eq("id", id); if (r.error) throw r.error; }
-      if (act === "addb") {
-        const em = $("bEmail").value.trim(), nm = $("bName").value.trim(); if (!em || !nm) return alert("Completa email y nombre.");
-        const r = await sb.rpc("add_booster", {p_email:em, p_name:nm}); if (r.error) throw r.error; await loadRole();
-      }
-      if (act === "rmb" && confirm("¿Quitar este booster? Se borran sus ofertas en subastas abiertas.")) { const r = await sb.rpc("remove_booster", {p_user:id}); if (r.error) throw r.error; await loadRole(); }
-      if (act === "chat") return openChat(id);
-      await refresh();
-    } catch (err) { fail(err); }
-  });
-  $("mkTabs").addEventListener("click", e => { const t = e.target.closest("[data-tab]"); if (t) { tab = t.dataset.tab; chat = null; render(); } });
-
-  async function start() {
-    if (ch) { sb.removeChannel(ch); ch = null; }
-    if (!session) {
-      chat = null; $("mkTabs").innerHTML = "";
-      $("mkBody").innerHTML = `<div class="panel rounded-xl p-6 text-center"><p class="text-sm text-[#a9a2cf] mb-3">Inicia sesión para publicar una subasta u ofertar.</p><button data-act="login" type="button" class="display rounded-lg px-5 py-2 bg-[#b24dff] hover:bg-[#c46bff] font-bold">Entrar / Crear cuenta</button></div>`;
-      return;
-    }
-    await loadRole(); tab = "mine"; await refresh();
-  }
-  timer = setInterval(() => { if (session && !chat && !document.activeElement.matches("input,select")) refresh(); }, 20000);
-  $("mkBtn").onclick = () => $("mk").scrollIntoView({behavior:"smooth"});
-  if (sb) sb.auth.onAuthStateChange(() => setTimeout(start, 0));
-  start();
 })();
 </script>
 </body>

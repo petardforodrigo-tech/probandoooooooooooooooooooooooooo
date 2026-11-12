@@ -937,7 +937,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
     t.push(["chats", role.admin ? "Chats (admin)" : "Chats"]);
     if (canPrice()) t.push(["precios","Precios"]);
     if (role.admin) t.push(["boosters","Boosters"]);
-    $("mkTabs").innerHTML = t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
+    $("mkTabs").innerHTML = (role.admin ? adminTag : "") + t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
   }
   const badge = s => `<span class="text-xs rounded px-2 py-0.5" style="border:1px solid ${ST[s][1]};color:${ST[s][1]}">${ST[s][0]}</span>`;
   const expired = a => a.status === "open" && !!a.expires_at && new Date(a.expires_at).getTime() <= Date.now();
@@ -969,6 +969,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
   const tierTag = id => { const r = D.rk[id]; if (!r) return ""; const c = TC[r.tier] || "#8d86b5"; return `<span class="text-xs rounded px-1.5" style="border:1px solid ${c};color:${c}">${esc(r.tier)} · ${Number(r.trust_score)}</span>`; };
   const isVip = id => !!(D.f[id] && D.f[id].vip);
   const vipTag = id => isVip(id) ? `<span class="text-xs rounded px-1.5 font-bold" style="border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:10px"></i> VIP</span>` : "";
+  const adminTag = `<span class="text-xs rounded px-2 py-0.5 font-bold inline-flex items-center gap-1" style="border:1px solid #b24dff;color:#e6b8ff;background:rgba(178,77,255,.18);box-shadow:0 0 10px -2px #b24dff"><i class="fa-solid fa-user-shield" style="font-size:10px"></i> Admin · Creador</span>`;
   const canPrice = () => role.admin || (role.booster && isVip(me()));
   function rateBox(a) {
     if (a.status !== "done" || !a.winner_bid) return "";
@@ -994,14 +995,14 @@ setInterval(loadPrices, 5 * 60 * 1000);
       <div class="flex flex-wrap items-center gap-2 mt-3">
         <input id="bid-${a.id}" type="number" min="1" value="${mine ? mine.price : ""}" placeholder="Tu oferta en ARS" class="field rounded-lg px-3 py-2 text-sm w-44">
         <button data-act="bid" data-id="${a.id}" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] hover:bg-[#c46bff] text-sm font-bold">${mine ? "Actualizar oferta" : "Ofertar"}</button>
-        ${mine ? `<button data-act="unbid" data-id="${mine.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Retirar</button><span class="text-xs text-[#a9a2cf]">Tu oferta: ${fmt(mine.price)}</span>` : ""}</div></section>`;
+        ${mine ? `<button data-act="unbid" data-id="${mine.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Retirar</button><span class="text-xs text-[#a9a2cf]">Tu oferta: ${fmt(mine.price)}</span>` : ""}${role.admin ? `<button data-act="delpedido" data-id="${a.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline ml-auto">Eliminar pedido</button>` : ""}</div></section>`;
   }
   function chatCard(a) {
     const w = D.b.find(x => x.id === a.winner_bid);
     return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
       <p class="text-xs text-[#a9a2cf] mt-2">Booster: ${esc(w ? nm(w.booster_id) : "—")}${w ? " " + vipTag(w.booster_id) : ""}${w ? " · Acordado: " + fmt(w.price) : ""}</p>
       <div class="flex gap-3 mt-2 items-center"><button data-act="chat" data-id="${a.id}" type="button" class="text-sm text-[#35e0ff] hover:underline">Abrir chat</button>
-      ${role.admin ? `<a href="admin.html" class="text-xs text-[#a9a2cf] hover:underline">Estado y pago: en el panel admin</a>` : ""}</div>
+      ${role.admin ? `<a href="admin.html" class="text-xs text-[#a9a2cf] hover:underline">Estado y pago: en el panel admin</a><button data-act="delpedido" data-id="${a.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline ml-auto">Eliminar pedido</button>` : ""}</div>
       <div id="chat-${a.id}"></div></section>`;
   }
   const arsInput = (id, label, v) => `<label class="text-sm">${label}<input id="${id}" type="number" min="1000" max="5000000" step="100" value="${esc(v)}" class="field w-full rounded-lg px-3 py-2 mt-1"></label>`;
@@ -1052,7 +1053,8 @@ setInterval(loadPrices, 5 * 60 * 1000);
     box.innerHTML = `<div class="mt-3 border-t border-[#2b2352] pt-3"><div id="msgs" class="space-y-1 text-sm overflow-y-auto" style="max-height:260px"></div>
       <div class="flex gap-2 mt-2"><input id="msgIn" maxlength="2000" placeholder="Escribe un mensaje…" class="field flex-1 rounded-lg px-3 py-2 text-sm"><button id="msgGo" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] text-sm font-bold">Enviar</button></div></div>`;
     const add = m => { const d = document.createElement("div"); const mine = m.sender_id === me();
-      d.innerHTML = `<span style="color:${mine ? "#35e0ff" : "#f5c542"}">${mine ? "Tú" : who(a, m.sender_id)}:</span> `; d.append(document.createTextNode(m.body));
+      const adm = mine ? role.admin : who(a, m.sender_id) === "Admin";
+      d.innerHTML = `${adm ? adminTag + " " : ""}<span style="color:${mine ? "#35e0ff" : "#f5c542"}">${mine ? "Tú" : who(a, m.sender_id)}:</span> `; d.append(document.createTextNode(m.body));
       $("msgs").appendChild(d); $("msgs").scrollTop = 1e9; };
     const { data } = await sb.from("messages").select("*").eq("auction_id", id).order("id");
     (data || []).forEach(add);
@@ -1107,6 +1109,12 @@ setInterval(loadPrices, 5 * 60 * 1000);
       if (act === "addb") {
         const em = $("bEmail").value.trim(), nm = $("bName").value.trim(); if (!em || !nm) return alert("Completa email y nombre.");
         const r = await sb.rpc("add_booster", {p_email:em, p_name:nm}); if (r.error) throw r.error; await loadRole();
+      }
+      if (act === "delpedido") {
+        if (!confirm("¿Eliminar este pedido para siempre? Se borran también sus ofertas y el chat.")) return;
+        const r = await sb.rpc("delete_auction", {p_id:id});
+        if (r.error) throw new Error("No se pudo eliminar. ¿Corriste eliminar_pedidos.sql en Supabase? (" + r.error.message + ")");
+        chat = null;
       }
       if (act === "saveprices") {
         const v = ["pSoloTier", "pSoloDiv", "pDuoTier", "pDuoDiv"].map(i => parseInt($(i).value, 10));

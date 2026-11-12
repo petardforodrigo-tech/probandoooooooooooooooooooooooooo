@@ -56,6 +56,9 @@ body{position:relative}
 @keyframes deco-shard{0%{opacity:0;transform:translate(0,0) scale(.45) skewX(0)}18%{opacity:.95}55%{opacity:.7;transform:translate(10px,-16px) scale(1) skewX(-6deg)}100%{opacity:0;transform:translate(26px,-40px) scale(1.2) skewX(-12deg)}}
 @media(max-width:767px){.shard-w{opacity:.55}}
 
+.vtip{position:relative;display:inline-flex;align-items:center;cursor:help}
+.vtip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#0f0a24;color:#e6b8ff;border:1px solid #b24dff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .15s;z-index:50}
+.vtip:hover::after,.vtip:focus::after{opacity:1}
 </style>
 </head>
 <body class="min-h-screen"><div class="deco" aria-hidden="true"><svg width="0" height="0" style="position:absolute"><defs><linearGradient id="shardGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6a1bd1"/><stop offset=".55" stop-color="#c35cff"/><stop offset="1" stop-color="#f1d4ff"/></linearGradient></defs></svg><div class="shard-w" style="left:2%;top:5%;transform:rotate(-20deg) scale(1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:2.5s;animation-duration:4.9s"><path d="M0 60 C6 38 26 16 74 0 C46 22 24 40 0 60Z"/></svg></div><div class="shard-w" style="left:90%;top:8%;transform:rotate(160deg) scale(0.9)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.2s;animation-duration:5.4s"><path d="M0 60 C16 46 40 34 78 36 C48 40 22 50 0 60Z"/></svg></div><div class="shard-w" style="left:1%;top:19%;transform:rotate(10deg) scale(0.8)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.0s;animation-duration:5.3s"><path d="M0 60 C4 40 14 18 36 -10 C28 14 18 38 0 60Z"/></svg></div><div class="shard-w" style="left:92%;top:27%;transform:rotate(200deg) scale(1.1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:0.1s;animation-duration:4.3s"><path d="M0 60 C6 38 26 16 74 0 C46 22 24 40 0 60Z"/></svg></div><div class="shard-w" style="left:3%;top:35%;transform:rotate(-40deg) scale(1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.8s;animation-duration:4.7s"><path d="M0 60 C16 46 40 34 78 36 C48 40 22 50 0 60Z"/></svg></div><div class="shard-w" style="left:90%;top:44%;transform:rotate(140deg) scale(0.9)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.6s;animation-duration:3.5s"><path d="M0 60 C4 40 14 18 36 -10 C28 14 18 38 0 60Z"/></svg></div><div class="shard-w" style="left:2%;top:53%;transform:rotate(0deg) scale(1.1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:1.9s;animation-duration:3.8s"><path d="M0 60 C6 38 26 16 74 0 C46 22 24 40 0 60Z"/></svg></div><div class="shard-w" style="left:91%;top:61%;transform:rotate(190deg) scale(1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:2.2s;animation-duration:4.5s"><path d="M0 60 C16 46 40 34 78 36 C48 40 22 50 0 60Z"/></svg></div><div class="shard-w" style="left:3%;top:70%;transform:rotate(-30deg) scale(0.9)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:0.1s;animation-duration:3.7s"><path d="M0 60 C4 40 14 18 36 -10 C28 14 18 38 0 60Z"/></svg></div><div class="shard-w" style="left:89%;top:79%;transform:rotate(150deg) scale(1.1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:1.1s;animation-duration:5.3s"><path d="M0 60 C6 38 26 16 74 0 C46 22 24 40 0 60Z"/></svg></div><div class="shard-w" style="left:2%;top:88%;transform:rotate(15deg) scale(1)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.1s;animation-duration:3.6s"><path d="M0 60 C16 46 40 34 78 36 C48 40 22 50 0 60Z"/></svg></div><div class="shard-w" style="left:92%;top:95%;transform:rotate(170deg) scale(0.9)"><svg class="shard" width="80" height="62" viewBox="-4 -12 86 76" style="animation-delay:3.2s;animation-duration:3.5s"><path d="M0 60 C4 40 14 18 36 -10 C28 14 18 38 0 60Z"/></svg></div><svg class="deco-rayo" style="left:1%;top:10%;animation-delay:0.0s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 36,30 34,60 26,90 44,120 52,150 52,180 52,210 45,240"/></svg><svg class="deco-rayo" style="right:1%;top:18%;animation-delay:0.8s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 22,30 8,60 18,90 14,120 26,150 22,180 39,210 51,240"/></svg><svg class="deco-rayo" style="left:0%;top:38%;animation-delay:1.6s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 20,30 34,60 33,90 51,120 47,150 31,180 36,210 46,240"/></svg><svg class="deco-rayo" style="right:0%;top:47%;animation-delay:2.4s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 15,30 9,60 26,90 35,120 21,150 12,180 8,210 8,240"/></svg><svg class="deco-rayo" style="left:1%;top:66%;animation-delay:3.2s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 18,30 21,60 19,90 8,120 16,150 8,180 13,210 8,240"/></svg><svg class="deco-rayo" style="right:1%;top:75%;animation-delay:4.0s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 20,30 11,60 28,90 39,120 32,150 46,180 36,210 32,240"/></svg><svg class="deco-rayo" style="left:0%;top:88%;animation-delay:4.8s" width="60" height="240" viewBox="0 0 60 240" aria-hidden="true"><polyline points="30,0 35,30 21,60 38,90 28,120 19,150 29,180 23,210 16,240"/></svg><span class="deco-hab h0" style="left:4%;top:6%;width:64px;height:64px;animation-delay:-5.2s;animation-duration:8.4s"></span><span class="deco-hab h1" style="left:88%;top:10%;width:64px;height:64px;animation-delay:-2.7s;animation-duration:8.4s"></span><span class="deco-hab h2" style="left:7%;top:22%;width:48px;height:48px;animation-delay:-1.1s;animation-duration:7.0s"></span><span class="deco-hab h0" style="left:91%;top:30%;width:48px;height:48px;animation-delay:-0.6s;animation-duration:6.2s"></span><span class="deco-hab h1" style="left:3%;top:42%;width:40px;height:40px;animation-delay:-3.2s;animation-duration:8.6s"></span><span class="deco-hab h2" style="left:93%;top:52%;width:40px;height:40px;animation-delay:-3.6s;animation-duration:6.6s"></span><span class="deco-hab h0" style="left:6%;top:63%;width:64px;height:64px;animation-delay:-3.9s;animation-duration:7.5s"></span><span class="deco-hab h1" style="left:89%;top:72%;width:48px;height:48px;animation-delay:-3.7s;animation-duration:8.3s"></span><span class="deco-hab h2" style="left:4%;top:83%;width:40px;height:40px;animation-delay:-0.4s;animation-duration:5.8s"></span><span class="deco-hab h0" style="left:92%;top:92%;width:48px;height:48px;animation-delay:-3.6s;animation-duration:8.1s"></span><span class="deco-hab h1" style="left:48%;top:3%;width:56px;height:56px;animation-delay:-2.6s;animation-duration:8.4s"></span><span class="deco-hab h2" style="left:50%;top:97%;width:48px;height:48px;animation-delay:-3.8s;animation-duration:7.0s"></span></div>
@@ -116,7 +119,7 @@ body{position:relative}
 
   <div id="mkrk" class="mt-2 mb-12">
     <section id="mk" class="min-w-0">
-    <h2 class="display text-2xl font-bold mb-1"><i class="fa-solid fa-gavel text-[#b24dff] mr-2"></i>Marketplace</h2>
+    <div class="flex flex-wrap items-center gap-3 mb-1"><h2 class="display text-2xl font-bold"><i class="fa-solid fa-gavel text-[#b24dff] mr-2"></i>Marketplace</h2><span id="adminBadge"></span></div>
     <p class="text-sm text-[#a9a2cf] mb-4">Publica tu pedido, los boosters ofertan su precio y tú eliges.</p>
     <div id="mkTabs" class="flex flex-wrap gap-2 mb-4"></div>
     <div id="mkBody"></div>
@@ -915,6 +918,8 @@ setInterval(loadPrices, 5 * 60 * 1000);
   const stepOpts = (sel, min) => Array.from({length:25}, (_, s) => s >= min ? `<option value="${s}"${s === sel ? " selected" : ""}>${esc(stepLabel(s))}</option>` : "").join("");
   let role = {admin:false, booster:false}, tab = "mine", D = {a:[], b:[], n:{}, r:new Set(), f:{}, rk:{}}, chat = null, timer = null;
   const me = () => session && session.user.id;
+  const OWNER_EMAIL = "vbsdboost@gmail.com";
+  const isOwner = () => !!(session && session.user && (session.user.email || "").toLowerCase() === OWNER_EMAIL);
 
   async function load() {
     try { await sb.rpc("expire_auctions"); } catch (e) {}
@@ -932,12 +937,13 @@ setInterval(loadPrices, 5 * 60 * 1000);
     role = {admin:a.data === true, booster:b.data === true};
   }
   function tabs() {
+    const ab = $("adminBadge"); if (ab) ab.innerHTML = (role.admin && isOwner()) ? adminTag : "";
     const t = [["mine","Mis pedidos"]];
     if (role.booster) t.push(["open","Subastas abiertas"]);
     t.push(["chats", role.admin ? "Chats (admin)" : "Chats"]);
     if (canPrice()) t.push(["precios","Precios"]);
     if (role.admin) t.push(["boosters","Boosters"]);
-    $("mkTabs").innerHTML = (role.admin ? adminTag : "") + t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
+    $("mkTabs").innerHTML = t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
   }
   const badge = s => `<span class="text-xs rounded px-2 py-0.5" style="border:1px solid ${ST[s][1]};color:${ST[s][1]}">${ST[s][0]}</span>`;
   const expired = a => a.status === "open" && !!a.expires_at && new Date(a.expires_at).getTime() <= Date.now();
@@ -967,9 +973,11 @@ setInterval(loadPrices, 5 * 60 * 1000);
     : `<span class="rounded-full shrink-0 flex items-center justify-center font-bold text-white" style="width:22px;height:22px;background:#b24dff;font-size:11px">${esc(String(n).charAt(0).toUpperCase())}</span>`; };
   const nm = id => D.n[id] || (D.rk[id] && D.rk[id].display_name) || "Booster";
   const tierTag = id => { const r = D.rk[id]; if (!r) return ""; const c = TC[r.tier] || "#8d86b5"; return `<span class="text-xs rounded px-1.5" style="border:1px solid ${c};color:${c}">${esc(r.tier)} · ${Number(r.trust_score)}</span>`; };
+  const isVerified = id => !!(D.f[id] && D.f[id].verified);
+  const verTag = id => isVerified(id) ? `<span class="vtip" tabindex="0" data-tip="Verificado por el creador" aria-label="Verificado por el creador"><i class="fa-solid fa-circle-check text-[#b24dff]" style="font-size:13px"></i></span>` : "";
   const isVip = id => !!(D.f[id] && D.f[id].vip);
   const vipTag = id => isVip(id) ? `<span class="text-xs rounded px-1.5 font-bold" style="border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:10px"></i> VIP</span>` : "";
-  const adminTag = `<span class="text-xs rounded px-2 py-0.5 font-bold inline-flex items-center gap-1" style="border:1px solid #b24dff;color:#e6b8ff;background:rgba(178,77,255,.18);box-shadow:0 0 10px -2px #b24dff"><i class="fa-solid fa-user-shield" style="font-size:10px"></i> Admin · Creador</span>`;
+  const adminTag = `<span class="text-xs rounded px-2 py-0.5 font-bold inline-flex items-center gap-1" style="border:1px solid #b24dff;color:#e6b8ff;background:rgba(178,77,255,.18);box-shadow:0 0 10px -2px #b24dff"><i class="fa-solid fa-user-shield" style="font-size:10px"></i> Admin y creador de la página</span>`;
   const canPrice = () => role.admin || (role.booster && isVip(me()));
   function rateBox(a) {
     if (a.status !== "done" || !a.winner_bid) return "";
@@ -982,7 +990,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
   function mineCard(a) {
     const bids = D.b.filter(x => x.auction_id === a.id).sort((x, y) => (isVip(y.booster_id) - isVip(x.booster_id)) || (x.price - y.price));
     const list = a.status === "cancelled" ? "" : bids.length ? bids.map(b => `<div class="flex items-center justify-between gap-2 py-1 text-sm${b.id === a.winner_bid ? " text-[#f5c542]" : ""}">
-        <span class="flex items-center gap-2 min-w-0">${avt(b.booster_id)}<span class="truncate">${esc(nm(b.booster_id))}</span>${vipTag(b.booster_id)}${tierTag(b.booster_id)}</span><span class="display font-bold">${fmt(b.price)}</span>
+        <span class="flex items-center gap-2 min-w-0">${avt(b.booster_id)}<span class="truncate">${esc(nm(b.booster_id))}</span>${verTag(b.booster_id)}${vipTag(b.booster_id)}${tierTag(b.booster_id)}</span><span class="display font-bold">${fmt(b.price)}</span>
         ${a.status === "open" && !expired(a) ? `<button data-act="choose" data-id="${b.id}" type="button" class="rounded-lg px-3 py-1 bg-[#b24dff] hover:bg-[#c46bff] text-xs font-bold">Elegir</button>` : b.id === a.winner_bid ? "<span class=\"text-xs\">Elegido</span>" : ""}</div>`).join("")
       : `<p class="text-sm text-[#a9a2cf]">Todavía no hay ofertas.</p>`;
     return `<section class="panel rounded-xl p-4 mb-3">${head(a)}<div class="mt-3 border-t border-[#2b2352] pt-2">${list}</div>
@@ -991,6 +999,8 @@ setInterval(loadPrices, 5 * 60 * 1000);
   }
   function openCard(a) {
     const mine = D.b.find(x => x.auction_id === a.id && x.booster_id === me());
+    if (!isVerified(me())) return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
+      <p class="text-sm text-[#a9a2cf] mt-3 border-t border-[#2b2352] pt-3"><i class="fa-solid fa-lock mr-1"></i>Solo los boosters verificados por el creador pueden ofertar.</p>${role.admin ? `<div class="mt-2"><button data-act="delpedido" data-id="${a.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Eliminar pedido</button></div>` : ""}</section>`;
     return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
       <div class="flex flex-wrap items-center gap-2 mt-3">
         <input id="bid-${a.id}" type="number" min="1" value="${mine ? mine.price : ""}" placeholder="Tu oferta en ARS" class="field rounded-lg px-3 py-2 text-sm w-44">
@@ -1030,7 +1040,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
       <p class="text-xs text-[#a9a2cf] mb-3">La persona (o vos) tiene que haber creado su cuenta en la página antes.</p>
       <div class="grid sm:grid-cols-2 gap-3"><input id="bEmail" type="email" placeholder="Email de su cuenta" class="field rounded-lg px-3 py-2 text-sm"><input id="bName" maxlength="40" placeholder="Nombre visible" class="field rounded-lg px-3 py-2 text-sm"></div>
       <button data-act="addb" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Agregar booster</button></section>`
-      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span class="flex items-center gap-2">${esc(n)}${vipTag(id)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="vip" data-id="${id}" data-v="${isVip(id) ? 0 : 1}" type="button" class="text-[#f5c542] hover:underline font-bold">${isVip(id) ? "Quitar VIP" : "Dar VIP"}</button><button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
+      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span class="flex items-center gap-2">${esc(n)}${verTag(id)}${vipTag(id)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="vip" data-id="${id}" data-v="${isVip(id) ? 0 : 1}" type="button" class="text-[#f5c542] hover:underline font-bold">${isVip(id) ? "Quitar VIP" : "Dar VIP"}</button><button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
     if (tab === "precios") h = canPrice() ? pricesPanel() : "";
     $("mkBody").innerHTML = h;
     tick();
@@ -1053,7 +1063,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
     box.innerHTML = `<div class="mt-3 border-t border-[#2b2352] pt-3"><div id="msgs" class="space-y-1 text-sm overflow-y-auto" style="max-height:260px"></div>
       <div class="flex gap-2 mt-2"><input id="msgIn" maxlength="2000" placeholder="Escribe un mensaje…" class="field flex-1 rounded-lg px-3 py-2 text-sm"><button id="msgGo" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] text-sm font-bold">Enviar</button></div></div>`;
     const add = m => { const d = document.createElement("div"); const mine = m.sender_id === me();
-      const adm = mine ? role.admin : who(a, m.sender_id) === "Admin";
+      const adm = mine ? (role.admin && isOwner()) : who(a, m.sender_id) === "Admin";
       d.innerHTML = `${adm ? adminTag + " " : ""}<span style="color:${mine ? "#35e0ff" : "#f5c542"}">${mine ? "Tú" : who(a, m.sender_id)}:</span> `; d.append(document.createTextNode(m.body));
       $("msgs").appendChild(d); $("msgs").scrollTop = 1e9; };
     const { data } = await sb.from("messages").select("*").eq("auction_id", id).order("id");
@@ -1101,6 +1111,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
       if (act === "choose" && confirm("¿Elegir esta oferta? Se abrirá el chat con el booster y el admin.")) { const r = await sb.rpc("choose_bid", {p_bid:id}); if (r.error) throw r.error; chat = null; }
       if (act === "cancel" && confirm("¿Cancelar la subasta?")) { const r = await sb.rpc("cancel_auction", {p_id:id}); if (r.error) throw r.error; }
       if (act === "bid") {
+        if (!isVerified(me())) return alert("Solo los boosters verificados pueden ofertar.");
         const price = parseInt($("bid-" + id).value, 10); if (!(price > 0)) return alert("Pon un precio válido en ARS.");
         const r = await sb.from("bids").upsert({auction_id:id, booster_id:me(), price}, {onConflict:"auction_id,booster_id"}); if (r.error) throw r.error;
       }
@@ -1194,7 +1205,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
         <div class="flex items-center gap-2">
           <span class="display font-bold text-center" style="width:16px;font-size:15px;color:${pos <= 3 ? "#f5c542" : "#8d86b5"}">${pos}</span>
           ${av(b.avatar_url, b.display_name, 24)}<span class="font-medium truncate flex-1 text-sm">${esc(b.display_name)}</span>${vip[b.booster_id] ? `<span class="rounded font-bold" style="font-size:11px;padding:0 6px;border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:9px"></i> VIP</span>` : ""}
-          ${b.verified ? `<i class="fa-solid fa-circle-check text-[#b24dff]" style="font-size:12px" title="Verificado" aria-label="Verificado"></i>` : ""}
+          ${b.verified ? `<span class="vtip" tabindex="0" data-tip="Verificado por el creador" aria-label="Verificado por el creador"><i class="fa-solid fa-circle-check text-[#b24dff]" style="font-size:13px"></i></span>` : ""}
           <span class="display font-bold" style="font-size:16px" title="Confianza">${score}</span>
         </div>
         <div style="padding-left:24px;font-size:11px;line-height:1.45;color:#a9a2cf">

@@ -861,6 +861,21 @@ applyLang();
 update();
 loadRates();
 setInterval(loadRates, RATES_REFRESH_MS);
+
+// Precios base guardados en Supabase (los edita el admin o un booster VIP). Si no hay, quedan los de arriba.
+async function loadPrices(){
+  if (!sb) return;
+  try {
+    const r = await sb.from("price_config").select("*").eq("id", 1).maybeSingle();
+    const d = r && r.data; if (!d) return;
+    const v = [d.solo_tier, d.solo_div, d.duo_tier, d.duo_div].map(Number);
+    if (!v.every(n => Number.isFinite(n) && n > 0)) return;
+    PRICES.solo.tier = v[0]; PRICES.solo.div = v[1]; PRICES.duo.tier = v[2]; PRICES.duo.div = v[3];
+    update();
+  } catch (_) {}
+}
+loadPrices();
+setInterval(loadPrices, 5 * 60 * 1000);
 </script>
 
 <script>
@@ -902,6 +917,7 @@ setInterval(loadRates, RATES_REFRESH_MS);
   const me = () => session && session.user.id;
 
   async function load() {
+    try { await sb.rpc("expire_auctions"); } catch (e) {}
     const [A, B, N, R, F, K] = await Promise.all([
       sb.from("auctions").select("*").order("created_at", {ascending:false}),
       sb.from("bids").select("*"), sb.from("boosters").select("*"),
@@ -919,11 +935,15 @@ setInterval(loadRates, RATES_REFRESH_MS);
     const t = [["mine","Mis pedidos"]];
     if (role.booster) t.push(["open","Subastas abiertas"]);
     t.push(["chats", role.admin ? "Chats (admin)" : "Chats"]);
+    if (canPrice()) t.push(["precios","Precios"]);
     if (role.admin) t.push(["boosters","Boosters"]);
     $("mkTabs").innerHTML = t.map(([k, n]) => `<button type="button" data-tab="${k}" class="div-btn rounded-lg px-4 py-2 text-sm${tab === k ? " on" : ""}">${n}</button>`).join("");
   }
   const badge = s => `<span class="text-xs rounded px-2 py-0.5" style="border:1px solid ${ST[s][1]};color:${ST[s][1]}">${ST[s][0]}</span>`;
-  const head = a => `<div class="flex flex-wrap items-center justify-between gap-2"><div class="flex items-center gap-2">${rank(a.cur_step)}<i class="fa-solid fa-arrow-right-long text-[#b24dff]"></i>${rank(a.tgt_step)}</div>${badge(a.status)}</div>
+  const expired = a => a.status === "open" && !!a.expires_at && new Date(a.expires_at).getTime() <= Date.now();
+  const stBadge = a => expired(a) ? `<span class="text-xs rounded px-2 py-0.5" style="border:1px solid #ff8aa8;color:#ff8aa8">Vencida</span>` : badge(a.status);
+  const timerTag = a => a.status === "open" && a.expires_at ? `<span class="timer text-xs font-bold rounded px-2 py-0.5" data-id="${a.id}" data-exp="${esc(a.expires_at)}" style="border:1px solid #f5c542;color:#f5c542"></span>` : "";
+  const head = a => `<div class="flex flex-wrap items-center justify-between gap-2"><div class="flex items-center gap-2">${rank(a.cur_step)}<i class="fa-solid fa-arrow-right-long text-[#b24dff]"></i>${rank(a.tgt_step)}</div><div class="flex items-center gap-2">${timerTag(a)}${stBadge(a)}</div></div>
     <div class="text-xs text-[#a9a2cf] mt-2">${a.mode === "duo" ? "Dúo" : "Solo"} · ${esc(a.region)}${a.max_price ? " · tope " + fmt(a.max_price) : ""}${a.note ? "<br>" + esc(a.note) : ""}</div>`;
 
   function form() {
@@ -933,6 +953,7 @@ setInterval(loadRates, RATES_REFRESH_MS);
         <label class="text-sm">Rango deseado<select id="mkTgt" class="field w-full rounded-lg px-3 py-2 mt-1">${stepOpts(3, 1)}</select></label>
         <label class="text-sm">Modalidad<select id="mkMode" class="field w-full rounded-lg px-3 py-2 mt-1"><option value="solo">Solo</option><option value="duo">Dúo</option></select></label>
         <label class="text-sm">Servidor<select id="mkReg" class="field w-full rounded-lg px-3 py-2 mt-1"><option>BR</option><option>Santiago</option></select></label>
+        <label class="text-sm sm:col-span-2">Tiempo para recibir ofertas<select id="mkDur" class="field w-full rounded-lg px-3 py-2 mt-1"><option value="15">15 minutos</option><option value="20">20 minutos</option></select><span class="text-xs text-[#a9a2cf] block mt-1">Pasado ese tiempo la subasta vence y ya no se puede ofertar ni elegir.</span></label>
         <label class="text-sm sm:col-span-2">Precio máximo en pesos ARS (opcional)<input id="mkMax" type="number" min="1" class="field w-full rounded-lg px-3 py-2 mt-1"></label>
         <label class="text-sm sm:col-span-2">Notas (agentes, horarios…)<input id="mkNote" maxlength="300" class="field w-full rounded-lg px-3 py-2 mt-1"></label>
       </div>
@@ -946,6 +967,9 @@ setInterval(loadRates, RATES_REFRESH_MS);
     : `<span class="rounded-full shrink-0 flex items-center justify-center font-bold text-white" style="width:22px;height:22px;background:#b24dff;font-size:11px">${esc(String(n).charAt(0).toUpperCase())}</span>`; };
   const nm = id => D.n[id] || (D.rk[id] && D.rk[id].display_name) || "Booster";
   const tierTag = id => { const r = D.rk[id]; if (!r) return ""; const c = TC[r.tier] || "#8d86b5"; return `<span class="text-xs rounded px-1.5" style="border:1px solid ${c};color:${c}">${esc(r.tier)} · ${Number(r.trust_score)}</span>`; };
+  const isVip = id => !!(D.f[id] && D.f[id].vip);
+  const vipTag = id => isVip(id) ? `<span class="text-xs rounded px-1.5 font-bold" style="border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:10px"></i> VIP</span>` : "";
+  const canPrice = () => role.admin || (role.booster && isVip(me()));
   function rateBox(a) {
     if (a.status !== "done" || !a.winner_bid) return "";
     if (D.r.has(String(a.id))) return `<p class="text-xs text-[#a9a2cf] mt-3">Ya calificaste a tu booster. ¡Gracias!</p>`;
@@ -955,10 +979,10 @@ setInterval(loadRates, RATES_REFRESH_MS);
       <button data-act="rate" data-id="${a.id}" type="button" class="rounded-lg px-4 py-2 bg-[#b24dff] hover:bg-[#c46bff] text-sm font-bold">Calificar</button></div></div>`;
   }
   function mineCard(a) {
-    const bids = D.b.filter(x => x.auction_id === a.id).sort((x, y) => x.price - y.price);
+    const bids = D.b.filter(x => x.auction_id === a.id).sort((x, y) => (isVip(y.booster_id) - isVip(x.booster_id)) || (x.price - y.price));
     const list = a.status === "cancelled" ? "" : bids.length ? bids.map(b => `<div class="flex items-center justify-between gap-2 py-1 text-sm${b.id === a.winner_bid ? " text-[#f5c542]" : ""}">
-        <span class="flex items-center gap-2 min-w-0">${avt(b.booster_id)}<span class="truncate">${esc(nm(b.booster_id))}</span>${tierTag(b.booster_id)}</span><span class="display font-bold">${fmt(b.price)}</span>
-        ${a.status === "open" ? `<button data-act="choose" data-id="${b.id}" type="button" class="rounded-lg px-3 py-1 bg-[#b24dff] hover:bg-[#c46bff] text-xs font-bold">Elegir</button>` : b.id === a.winner_bid ? "<span class=\"text-xs\">Elegido</span>" : ""}</div>`).join("")
+        <span class="flex items-center gap-2 min-w-0">${avt(b.booster_id)}<span class="truncate">${esc(nm(b.booster_id))}</span>${vipTag(b.booster_id)}${tierTag(b.booster_id)}</span><span class="display font-bold">${fmt(b.price)}</span>
+        ${a.status === "open" && !expired(a) ? `<button data-act="choose" data-id="${b.id}" type="button" class="rounded-lg px-3 py-1 bg-[#b24dff] hover:bg-[#c46bff] text-xs font-bold">Elegir</button>` : b.id === a.winner_bid ? "<span class=\"text-xs\">Elegido</span>" : ""}</div>`).join("")
       : `<p class="text-sm text-[#a9a2cf]">Todavía no hay ofertas.</p>`;
     return `<section class="panel rounded-xl p-4 mb-3">${head(a)}<div class="mt-3 border-t border-[#2b2352] pt-2">${list}</div>
       <div class="flex gap-2 mt-2">${a.status === "open" ? `<button data-act="cancel" data-id="${a.id}" type="button" class="text-xs text-[#ff8aa8] hover:underline">Cancelar subasta</button>` : ""}
@@ -975,10 +999,23 @@ setInterval(loadRates, RATES_REFRESH_MS);
   function chatCard(a) {
     const w = D.b.find(x => x.id === a.winner_bid);
     return `<section class="panel rounded-xl p-4 mb-3">${head(a)}
-      <p class="text-xs text-[#a9a2cf] mt-2">Booster: ${esc(w ? nm(w.booster_id) : "—")}${w ? " · Acordado: " + fmt(w.price) : ""}</p>
+      <p class="text-xs text-[#a9a2cf] mt-2">Booster: ${esc(w ? nm(w.booster_id) : "—")}${w ? " " + vipTag(w.booster_id) : ""}${w ? " · Acordado: " + fmt(w.price) : ""}</p>
       <div class="flex gap-3 mt-2 items-center"><button data-act="chat" data-id="${a.id}" type="button" class="text-sm text-[#35e0ff] hover:underline">Abrir chat</button>
       ${role.admin ? `<a href="admin.html" class="text-xs text-[#a9a2cf] hover:underline">Estado y pago: en el panel admin</a>` : ""}</div>
       <div id="chat-${a.id}"></div></section>`;
+  }
+  const arsInput = (id, label, v) => `<label class="text-sm">${label}<input id="${id}" type="number" min="1000" max="5000000" step="100" value="${esc(v)}" class="field w-full rounded-lg px-3 py-2 mt-1"></label>`;
+  function pricesPanel() {
+    const P = PRICES;
+    return `<section class="panel rounded-xl p-5 mb-5"><h3 class="display text-lg font-bold mb-1">Precios de la calculadora</h3>
+      <p class="text-xs text-[#a9a2cf] mb-3">Precios base en pesos argentinos (ARS). En cuanto guardás, los ve todo el mundo en la calculadora de arriba (el precio por rango completo se reparte en sus 3 divisiones).</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        ${arsInput("pSoloTier", "Solo · rango completo (Hierro → Platino)", P.solo.tier)}
+        ${arsInput("pSoloDiv", "Solo · por división (Diamante → Inmortal)", P.solo.div)}
+        ${arsInput("pDuoTier", "Dúo · rango completo (Hierro → Platino)", P.duo.tier)}
+        ${arsInput("pDuoDiv", "Dúo · por división (Diamante → Inmortal)", P.duo.div)}
+      </div>
+      <button data-act="saveprices" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Guardar precios</button></section>`;
   }
   const empty = t => `<p class="text-sm text-[#a9a2cf] py-6 text-center">${t}</p>`;
   function render() {
@@ -986,14 +1023,16 @@ setInterval(loadRates, RATES_REFRESH_MS);
     const mineA = D.a.filter(a => a.client_id === me());
     let h = "";
     if (tab === "mine") h = form() + (mineA.length ? mineA.map(mineCard).join("") : empty("Todavía no publicaste ninguna subasta."));
-    if (tab === "open") { const l = D.a.filter(a => a.status === "open" && a.client_id !== me()); h = l.length ? l.map(openCard).join("") : empty("No hay subastas abiertas ahora."); }
+    if (tab === "open") { const l = D.a.filter(a => a.status === "open" && !expired(a) && a.client_id !== me()); h = l.length ? l.map(openCard).join("") : empty("No hay subastas abiertas ahora."); }
     if (tab === "chats") { const l = D.a.filter(a => ["assigned","paid","done"].includes(a.status)); h = l.length ? l.map(chatCard).join("") : empty("Cuando una oferta sea elegida, el chat aparece acá."); }
     if (tab === "boosters") h = `<section class="panel rounded-xl p-5 mb-5"><h3 class="display text-lg font-bold mb-1">Agregar booster</h3>
       <p class="text-xs text-[#a9a2cf] mb-3">La persona (o vos) tiene que haber creado su cuenta en la página antes.</p>
       <div class="grid sm:grid-cols-2 gap-3"><input id="bEmail" type="email" placeholder="Email de su cuenta" class="field rounded-lg px-3 py-2 text-sm"><input id="bName" maxlength="40" placeholder="Nombre visible" class="field rounded-lg px-3 py-2 text-sm"></div>
       <button data-act="addb" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Agregar booster</button></section>`
-      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span>${esc(n)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
+      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span class="flex items-center gap-2">${esc(n)}${vipTag(id)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="vip" data-id="${id}" data-v="${isVip(id) ? 0 : 1}" type="button" class="text-[#f5c542] hover:underline font-bold">${isVip(id) ? "Quitar VIP" : "Dar VIP"}</button><button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
+    if (tab === "precios") h = canPrice() ? pricesPanel() : "";
     $("mkBody").innerHTML = h;
+    tick();
     if (chat) openChat(chat, true);
   }
   async function refresh() { try { await load(); render(); } catch (e) { $("mkBody").innerHTML = empty("No se pudo cargar. ¿Corriste marketplace.sql en Supabase? (" + esc(e.message) + ")"); } }
@@ -1003,7 +1042,7 @@ setInterval(loadRates, RATES_REFRESH_MS);
   function who(a, uid) {
     if (uid === a.client_id) return "Cliente";
     const w = D.b.find(x => x.id === a.winner_bid);
-    return w && uid === w.booster_id ? "Booster" : "Admin";
+    return w && uid === w.booster_id ? (isVip(uid) ? "Booster VIP" : "Booster") : "Admin";
   }
   async function openChat(id, keep) {
     const a = D.a.find(x => x.id === id); if (!a) return;
@@ -1025,6 +1064,23 @@ setInterval(loadRates, RATES_REFRESH_MS);
     $("msgGo").onclick = send; $("msgIn").onkeydown = e => { if (e.key === "Enter") send(); };
   }
 
+  // ----- Cronómetro de subastas -----
+  const fired = new Set();
+  function tick() {
+    document.querySelectorAll(".timer").forEach(el => {
+      const ms = new Date(el.dataset.exp).getTime() - Date.now();
+      if (ms <= 0) {
+        el.textContent = "Tiempo agotado"; el.style.color = el.style.borderColor = "#ff8aa8";
+        if (!fired.has(el.dataset.id)) { fired.add(el.dataset.id); if (session && !chat) refresh(); }
+        return;
+      }
+      const c = ms < 180000 ? "#ff8aa8" : "#f5c542";
+      el.textContent = "⏱ " + Math.floor(ms / 60000) + ":" + String(Math.floor(ms % 60000 / 1000)).padStart(2, "0");
+      el.style.color = el.style.borderColor = c;
+    });
+  }
+  setInterval(tick, 1000);
+
   // ----- Acciones -----
   const fail = e => alert(e && e.message ? e.message : "Error");
   $("mkBody").addEventListener("click", async e => {
@@ -1035,7 +1091,9 @@ setInterval(loadRates, RATES_REFRESH_MS);
       if (act === "create") {
         const cur = +$("mkCur").value, tgt = +$("mkTgt").value;
         if (tgt <= cur) { $("mkErr").textContent = "El rango deseado debe ser mayor al actual."; $("mkErr").classList.remove("hidden"); return; }
-        const r = await sb.from("auctions").insert({cur_step:cur, tgt_step:tgt, mode:$("mkMode").value, region:$("mkReg").value, max_price:+$("mkMax").value || null, note:$("mkNote").value.trim() || null});
+        const row = {cur_step:cur, tgt_step:tgt, mode:$("mkMode").value, region:$("mkReg").value, max_price:+$("mkMax").value || null, note:$("mkNote").value.trim() || null};
+        let r = await sb.from("auctions").insert({...row, duration_min:+$("mkDur").value});
+        if (r.error && /duration_min/.test(r.error.message || "")) r = await sb.from("auctions").insert(row);
         if (r.error) throw r.error;
       }
       if (act === "choose" && confirm("¿Elegir esta oferta? Se abrirá el chat con el booster y el admin.")) { const r = await sb.rpc("choose_bid", {p_bid:id}); if (r.error) throw r.error; chat = null; }
@@ -1049,6 +1107,19 @@ setInterval(loadRates, RATES_REFRESH_MS);
       if (act === "addb") {
         const em = $("bEmail").value.trim(), nm = $("bName").value.trim(); if (!em || !nm) return alert("Completa email y nombre.");
         const r = await sb.rpc("add_booster", {p_email:em, p_name:nm}); if (r.error) throw r.error; await loadRole();
+      }
+      if (act === "saveprices") {
+        const v = ["pSoloTier", "pSoloDiv", "pDuoTier", "pDuoDiv"].map(i => parseInt($(i).value, 10));
+        if (!v.every(n => n >= 1000 && n <= 5000000)) return alert("Pon precios válidos en ARS (entre 1.000 y 5.000.000).");
+        const r = await sb.rpc("set_prices", {p_solo_tier:v[0], p_solo_div:v[1], p_duo_tier:v[2], p_duo_div:v[3]});
+        if (r.error) throw new Error("No se pudieron guardar los precios. ¿Corriste vip_precios.sql en Supabase? (" + r.error.message + ")");
+        PRICES.solo.tier = v[0]; PRICES.solo.div = v[1]; PRICES.duo.tier = v[2]; PRICES.duo.div = v[3];
+        window.update();
+        alert("Precios guardados. Ya se ven en la calculadora.");
+      }
+      if (act === "vip") {
+        const r = await sb.rpc("set_booster_vip", {p_user:id, p_vip:b.dataset.v === "1"});
+        if (r.error) throw new Error("No se pudo cambiar el VIP. ¿Corriste vip_booster.sql en Supabase? (" + r.error.message + ")");
       }
       if (act === "rmb" && confirm("¿Quitar este booster? Se borran sus ofertas en subastas abiertas.")) { const r = await sb.rpc("remove_booster", {p_user:id}); if (r.error) throw r.error; await loadRole(); }
       if (act === "rate") {
@@ -1102,6 +1173,8 @@ setInterval(loadRates, RATES_REFRESH_MS);
     const r = await sb.from("booster_ranking").select("*").order("pos");
     if (r.error) { box.innerHTML = note("No se pudo cargar el ranking. ¿Corriste ranking_boosters.sql en Supabase?"); return; }
     if (!r.data.length) { box.innerHTML = note("Todavía no hay boosters en el ranking."); return; }
+    const vip = {};
+    try { const f = await sb.from("booster_flags").select("*"); (f.data || []).forEach(x => { if (x.vip) vip[x.user_id] = true; }); } catch (e) {}
     box.innerHTML = r.data.map(b => {
       const pos = Number(b.pos), score = Number(b.trust_score), n = Number(b.reviews), cl = Number(b.clients), dp = Number(b.disputes);
       const stars = n > 0 ? `${Number(b.avg_rating).toFixed(1)} ★ (${n})` : "Sin reseñas";
@@ -1112,7 +1185,7 @@ setInterval(loadRates, RATES_REFRESH_MS);
       return `<div class="panel rounded-lg mb-1.5" style="padding:8px 10px">
         <div class="flex items-center gap-2">
           <span class="display font-bold text-center" style="width:16px;font-size:15px;color:${pos <= 3 ? "#f5c542" : "#8d86b5"}">${pos}</span>
-          ${av(b.avatar_url, b.display_name, 24)}<span class="font-medium truncate flex-1 text-sm">${esc(b.display_name)}</span>
+          ${av(b.avatar_url, b.display_name, 24)}<span class="font-medium truncate flex-1 text-sm">${esc(b.display_name)}</span>${vip[b.booster_id] ? `<span class="rounded font-bold" style="font-size:11px;padding:0 6px;border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:9px"></i> VIP</span>` : ""}
           ${b.verified ? `<i class="fa-solid fa-circle-check text-[#b24dff]" style="font-size:12px" title="Verificado" aria-label="Verificado"></i>` : ""}
           <span class="display font-bold" style="font-size:16px" title="Confianza">${score}</span>
         </div>

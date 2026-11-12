@@ -73,6 +73,11 @@ body{overflow-x:clip}
   .toast{font-size:13px}
 }
 #topBar{padding-top:env(safe-area-inset-top,0px)}
+/* ===== VIP: lluvia de estrellas ===== */
+.vip-stars{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.vip-stars i{position:absolute;top:-40px}
+@keyframes star-fall{to{transform:translateY(112vh) rotate(380deg)}}
+@media (prefers-reduced-motion:reduce){.vip-stars{display:none}}
 /* ===== Avisos ===== */
 #toasts{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 24px))}
 .toast{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border-color:#b24dff;box-shadow:0 0 24px -8px #b24dff;font-size:14px;animation:toast-in .25s ease-out}
@@ -197,7 +202,21 @@ html.light .field:focus{border-color:#7a2bd1}
     try { if (navigator.vibrate) navigator.vibrate(180); } catch (e) {}
   }
 
-  window.VBSD = { get: get, set: set, ach: ach, achHtml: achHtml, achRules: RULES, beep: beep, toast: toast, flashTitle: flashTitle };
+  function fanfare() {
+    if (get("vbsd-sound", "on") === "off") return;
+    var c = ctx(); if (!c) return;
+    try {
+      if (c.state === "suspended") c.resume();
+      var t = c.currentTime;
+      [523, 659, 784, 1047].forEach(function (f, i) {
+        var o = c.createOscillator(), g = c.createGain(), at = t + i * 0.12;
+        o.type = "triangle"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.2, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.35);
+        o.connect(g); g.connect(c.destination); o.start(at); o.stop(at + 0.4);
+      });
+    } catch (e) {}
+  }
+  window.VBSD = { fanfare: fanfare, get: get, set: set, ach: ach, achHtml: achHtml, achRules: RULES, beep: beep, toast: toast, flashTitle: flashTitle };
 })();
 </script>
 </head>
@@ -263,6 +282,7 @@ html.light .field:focus{border-color:#7a2bd1}
     <section id="mk" class="min-w-0">
     <div class="flex flex-wrap items-center gap-3 mb-1"><h2 class="display text-2xl font-bold"><i class="fa-solid fa-gavel text-[#b24dff] mr-2"></i>Marketplace</h2><span id="adminBadge"></span></div>
     <p class="text-sm text-[#a9a2cf] mb-4">Publica tu pedido, los boosters ofertan su precio y tú eliges.</p>
+    <div id="vipBanner"></div>
     <div id="mkTabs" class="flex flex-wrap gap-2 mb-4"></div>
     <div id="mkBody"></div>
   </section>
@@ -1061,7 +1081,6 @@ setInterval(loadPrices, 5 * 60 * 1000);
   const stepOpts = (sel, min) => Array.from({length:25}, (_, s) => s >= min ? `<option value="${s}"${s === sel ? " selected" : ""}>${esc(stepLabel(s))}</option>` : "").join("");
   let role = {admin:false, booster:false}, tab = "mine", D = {a:[], b:[], n:{}, r:new Set(), f:{}, rk:{}}, chat = null, timer = null;
   const me = () => session && session.user.id;
-  const OWNER_EMAIL = "vbsdboost@gmail.com";
   let OWNER = null; // {user_id, avatar_url} viene de la función owner_profile() en Supabase
   const OWNER_NAME = "VBSD Boost";
   function ownerCard() {
@@ -1074,10 +1093,11 @@ setInterval(loadPrices, 5 * 60 * 1000);
     try { const r = await sb.rpc("owner_profile"); const d = Array.isArray(r.data) ? r.data[0] : r.data; if (!r.error && d) OWNER = d; } catch (e) {}
     const ab = $("adminBadge"); if (ab) ab.innerHTML = ownerCard();
   }
-  const isOwner = () => !!(session && session.user && (session.user.email || "").toLowerCase() === OWNER_EMAIL);
+  const isOwner = () => !!(OWNER && OWNER.user_id && me() === OWNER.user_id);
 
   async function load() {
     try { await sb.rpc("expire_auctions"); } catch (e) {}
+    try { await sb.rpc("expire_vips"); } catch (e) {}
     const [A, B, N, R, F, K] = await Promise.all([
       sb.from("auctions").select("*").order("created_at", {ascending:false}),
       sb.from("bids").select("*"), sb.from("boosters").select("*"),
@@ -1130,8 +1150,11 @@ setInterval(loadPrices, 5 * 60 * 1000);
   const achIcons = id => (D.rk[id] && window.VBSD) ? VBSD.achHtml(D.rk[id], true) : "";
   const isVerified = id => !!(D.f[id] && D.f[id].verified);
   const verTag = id => isVerified(id) ? `<span class="vtip" tabindex="0" data-tip="Verificado por el creador" aria-label="Verificado por el creador"><i class="fa-solid fa-circle-check text-[#b24dff]" style="font-size:13px"></i></span>` : "";
-  const isVip = id => !!(D.f[id] && D.f[id].vip);
-  const vipTag = id => isVip(id) ? `<span class="text-xs rounded px-1.5 font-bold" style="border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:10px"></i> VIP</span>` : "";
+  const vipActive = f => !!(f && f.vip && (!f.vip_until || new Date(f.vip_until).getTime() > Date.now()));
+  const isVip = id => vipActive(D.f[id]);
+  const vipDays = id => { const u = D.f[id] && D.f[id].vip_until; return u ? Math.max(0, Math.ceil((new Date(u).getTime() - Date.now()) / 864e5)) : null; };
+  const fdate = d => new Date(d).toLocaleDateString("es-AR", {day:"2-digit", month:"2-digit", year:"numeric"});
+  const vipTag = id => isVip(id) ? `<span class="text-xs rounded px-1.5 font-bold" style="border:1px solid #f5c542;color:#f5c542;background:rgba(245,197,66,.12)"><i class="fa-solid fa-crown" style="font-size:10px"></i> VIP${vipDays(id) != null ? " · " + vipDays(id) + "d" : ""}</span>` : "";
   const adminTag = `<span class="text-xs rounded px-2 py-0.5 font-bold inline-flex items-center gap-1" style="border:1px solid #b24dff;color:#e6b8ff;background:rgba(178,77,255,.18);box-shadow:0 0 10px -2px #b24dff"><i class="fa-solid fa-user-shield" style="font-size:10px"></i> Admin y creador de la página</span>`;
   const canPrice = () => role.admin || (role.booster && isVip(me()));
   function rateBox(a) {
@@ -1185,7 +1208,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
   }
   const empty = t => `<p class="text-sm text-[#a9a2cf] py-6 text-center">${t}</p>`;
   function render() {
-    tabs();
+    tabs(); vipBanner();
     const mineA = D.a.filter(a => a.client_id === me());
     let h = "";
     if (tab === "mine") h = form() + (mineA.length ? mineA.map(mineCard).join("") : empty("Todavía no publicaste ninguna subasta."));
@@ -1195,7 +1218,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
       <p class="text-xs text-[#a9a2cf] mb-3">La persona (o vos) tiene que haber creado su cuenta en la página antes.</p>
       <div class="grid sm:grid-cols-2 gap-3"><input id="bEmail" type="email" placeholder="Email de su cuenta" class="field rounded-lg px-3 py-2 text-sm"><input id="bName" maxlength="40" placeholder="Nombre visible" class="field rounded-lg px-3 py-2 text-sm"></div>
       <button data-act="addb" type="button" class="display w-full mt-4 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold">Agregar booster</button></section>`
-      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span class="flex items-center gap-2">${esc(n)}${verTag(id)}${vipTag(id)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="vip" data-id="${id}" data-v="${isVip(id) ? 0 : 1}" type="button" class="text-[#f5c542] hover:underline font-bold">${isVip(id) ? "Quitar VIP" : "Dar VIP"}</button><button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
+      + (Object.keys(D.n).length ? Object.entries(D.n).map(([id, n]) => `<div class="panel rounded-xl px-4 py-2 mb-2 flex items-center justify-between text-sm"><span class="flex items-center gap-2">${esc(n)}${verTag(id)}${vipTag(id)}</span><span class="flex flex-wrap items-center gap-3 text-xs"><button data-act="vip" data-id="${id}" data-v="1" type="button" class="text-[#f5c542] hover:underline font-bold">${isVip(id) ? "Renovar +30 días" : "Dar VIP 30 días"}</button>${isVip(id) ? `<button data-act="vip" data-id="${id}" data-v="0" type="button" class="text-[#ff8aa8] hover:underline">Quitar VIP</button>` : ""}<button data-act="verif" data-id="${id}" data-v="${(D.f[id] || {}).verified ? 0 : 1}" type="button" class="text-[#35e0ff] hover:underline">${(D.f[id] || {}).verified ? "Quitar verificado" : "Verificar"}</button><span class="text-[#a9a2cf]">Disputas: ${(D.f[id] || {}).disputes || 0}</span><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) + 1}" type="button" class="text-[#f5c542] hover:underline">+1</button><button data-act="disp" data-id="${id}" data-d="${((D.f[id] || {}).disputes || 0) - 1}" type="button" class="text-[#f5c542] hover:underline">−1</button><button data-act="rmb" data-id="${id}" type="button" class="text-[#ff8aa8] hover:underline">Quitar</button></span></div>`).join("") : empty("Todavía no hay boosters."));
     if (tab === "precios") h = canPrice() ? pricesPanel() : "";
     $("mkBody").innerHTML = h;
     tick();
@@ -1293,7 +1316,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
       }
       if (act === "vip") {
         const r = await sb.rpc("set_booster_vip", {p_user:id, p_vip:b.dataset.v === "1"});
-        if (r.error) throw new Error("No se pudo cambiar el VIP. ¿Corriste vip_booster.sql en Supabase? (" + r.error.message + ")");
+        if (r.error) throw new Error("No se pudo cambiar el VIP. ¿Corriste vip_30_dias.sql en Supabase? (" + r.error.message + ")");
       }
       if (act === "rmb" && confirm("¿Quitar este booster? Se borran sus ofertas en subastas abiertas.")) { const r = await sb.rpc("remove_booster", {p_user:id}); if (r.error) throw r.error; await loadRole(); }
       if (act === "rate") {
@@ -1314,6 +1337,39 @@ setInterval(loadPrices, 5 * 60 * 1000);
     } catch (err) { fail(err); }
   });
   $("mkTabs").addEventListener("click", e => { const t = e.target.closest("[data-tab]"); if (t) { tab = t.dataset.tab; chat = null; render(); } });
+
+  // ----- Aviso de VIP (activo, por vencer, vencido) + celebración con estrellas -----
+  function celebrateVip(until) {
+    if (window.VBSD && VBSD.fanfare) VBSD.fanfare();
+    const rain = document.createElement("div"); rain.className = "vip-stars"; rain.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 34; i++) {
+      const st = document.createElement("i"); st.className = "fa-solid fa-star";
+      st.style.cssText = `left:${Math.random() * 100}%;font-size:${12 + Math.random() * 20}px;color:${["#f5c542","#ffd86b","#fff3b0","#ffb347"][i % 4]};animation:star-fall ${3 + Math.random() * 2.5}s ${Math.random() * 1.2}s linear forwards;filter:drop-shadow(0 0 6px #f5c542)`;
+      rain.appendChild(st);
+    }
+    document.body.appendChild(rain); setTimeout(() => rain.remove(), 7000);
+    const ov = document.createElement("div"); ov.className = "fixed inset-0 flex items-center justify-center p-4"; ov.style.cssText = "z-index:65;background:rgba(8,5,20,.72)";
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true");
+    ov.innerHTML = `<div class="panel rounded-xl p-6 text-center w-full" style="max-width:380px;border-color:#f5c542;box-shadow:0 0 40px -8px #f5c542">
+      <div style="font-size:42px;line-height:1;color:#f5c542"><i class="fa-solid fa-crown"></i></div>
+      <h3 class="display text-2xl font-bold mt-3">¡Felicitaciones, ya sos VIP!</h3>
+      <p class="text-sm text-[#a9a2cf] mt-2">Ofertás primero y podés editar precios. Tu VIP está activo hasta el <b>${esc(fdate(until))}</b>.</p>
+      <button type="button" class="display w-full mt-5 py-3 rounded-lg bg-[#b24dff] hover:bg-[#c46bff] font-bold" id="vipOk">¡Genial!</button></div>`;
+    document.body.appendChild(ov);
+    const close = () => ov.remove(); ov.querySelector("#vipOk").onclick = close; ov.addEventListener("click", e => { if (e.target === ov) close(); });
+  }
+  function vipBanner() {
+    const box = $("vipBanner"); if (!box) return;
+    const f = session ? D.f[me()] : null; if (!f) { box.innerHTML = ""; return; }
+    const key = "vbsd-vip:" + me(), until = f.vip_until ? new Date(f.vip_until) : null;
+    if (vipActive(f)) {
+      const d = until ? vipDays(me()) : null, soon = d != null && d <= 3;
+      box.innerHTML = `<div class="panel rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-2 text-sm" style="border-color:${soon ? "#ffb347" : "#f5c542"}"><i class="fa-solid fa-star text-[#f5c542]"></i><b class="text-[#f5c542]">VIP activo</b>${until ? `<span>· hasta el ${esc(fdate(until))} (${d === 1 ? "queda 1 día" : "quedan " + d + " días"})</span>` : ""}${soon ? `<span class="text-[#ffb347] font-bold">¡Renovalo pronto para no perderlo!</span>` : ""}</div>`;
+      if (until && window.VBSD && VBSD.get(key, "") !== f.vip_until) { VBSD.set(key, f.vip_until); celebrateVip(until); }
+    } else if (until && until.getTime() <= Date.now()) {
+      box.innerHTML = `<div class="panel rounded-xl px-4 py-3 mb-4 text-sm" style="border-color:#ff8aa8"><i class="fa-regular fa-star text-[#ff8aa8] mr-1"></i>Tu VIP venció el ${esc(fdate(until))}. Hablá con el admin para renovarlo.</div>`;
+    } else box.innerHTML = "";
+  }
 
   // ----- Aviso de ofertas nuevas (sonido + cartel + título) -----
   let seen = null;
@@ -1343,7 +1399,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
     if (ch) { sb.removeChannel(ch); ch = null; }
     if (sb) await loadOwner();
     if (!session) {
-      chat = null; $("mkTabs").innerHTML = "";
+      chat = null; $("mkTabs").innerHTML = ""; if ($("vipBanner")) $("vipBanner").innerHTML = "";
       $("mkBody").innerHTML = `<div class="panel rounded-xl p-6 text-center"><p class="text-sm text-[#a9a2cf] mb-3">Inicia sesión para publicar una subasta u ofertar.</p><button data-act="login" type="button" class="display rounded-lg px-5 py-2 bg-[#b24dff] hover:bg-[#c46bff] font-bold">Entrar / Crear cuenta</button></div>`;
       return;
     }
@@ -1374,7 +1430,7 @@ setInterval(loadPrices, 5 * 60 * 1000);
     if (r.error) { box.innerHTML = note("No se pudo cargar el ranking. ¿Corriste ranking_boosters.sql en Supabase?"); return; }
     if (!r.data.length) { box.innerHTML = note("Todavía no hay boosters en el ranking."); return; }
     const vip = {};
-    try { const f = await sb.from("booster_flags").select("*"); (f.data || []).forEach(x => { if (x.vip) vip[x.user_id] = true; }); } catch (e) {}
+    try { const f = await sb.from("booster_flags").select("*"); (f.data || []).forEach(x => { if (x.vip && (!x.vip_until || new Date(x.vip_until).getTime() > Date.now())) vip[x.user_id] = true; }); } catch (e) {}
     box.innerHTML = r.data.map(b => {
       const pos = Number(b.pos), score = Number(b.trust_score), n = Number(b.reviews), cl = Number(b.clients), dp = Number(b.disputes);
       const stars = n > 0 ? `${Number(b.avg_rating).toFixed(1)} ★ (${n})` : "Sin reseñas";
